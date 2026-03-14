@@ -1,0 +1,36 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        #0a0e14;
+  --surface:   #111620;
+  --surface2:  #1a2030;
+  --border:    rgba(255,255,255,0.08);
+  --accent:    #00d4ff;
+  --accent2:   #7c5cff;
+  --text:      #e8eaf0;
+  --muted:     #6b7280;
+  --radius:    10px;
+
+  /* Pollution color scale */
+  --clean:     #22d3ee;
+  --mild:      #a3e635;
+  --moderate:  #fb923c;
+  --severe:    #ef4444;
+  --critical:  #7f1d1d;
+}
+
+html, body, #root { height: 100%; width: 100%; overflow: hidden; }
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: var(--surface); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+.mono { font-family: 'Space Mono', monospace; }
