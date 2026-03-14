@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>EcoSim — Officer Environmental Simulator</title>
+<link href="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.css" rel="stylesheet"/>
+<script src="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --bg:#07090f;--surface:#0d1117;--surface2:#131b26;--surface3:#1a2332;
+  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.14);
+  --text:#dde4f0;--muted:#5a6a82;--dim:#2a3548;
+  --green:#00e5a0;--blue:#3b9eff;--amber:#f5a623;--red:#ff4d6d;--purple:#a78bfa;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);
+  font-family:'Syne',sans-serif;color:var(--text);}
+
+#app{display:grid;grid-template-columns:270px 1fr 290px;height:100vh;}
+
+/* panels */
+#left,#right{
+  background:var(--surface);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;overflow:hidden;z-index:2;
+}
+#right{border-right:none;border-left:1px solid var(--border);}
+.panel-head{padding:16px 18px 0;flex-shrink:0;}
+.panel-body{flex:1;overflow-y:auto;padding:14px 18px 18px;}
+.panel-body::-webkit-scrollbar{width:3px;}
+.panel-body::-webkit-scrollbar-thumb{background:var(--dim);border-radius:3px;}
+
+/* map */
+#map-wrap{position:relative;}
+#map{position:absolute;inset:0;}
+
+/* type */
+.logo{font-size:20px;font-weight:800;letter-spacing:-0.5px;color:#fff;}
+.logo span{color:var(--green);}
+.mono{font-family:'JetBrains Mono',monospace;}
+.sec{font-size:9px;font-family:'JetBrains Mono',monospace;letter-spacing:2px;
+  color:var(--muted);text-transform:uppercase;margin-bottom:8px;}
+.lbl{font-size:11px;color:var(--muted);margin-bottom:3px;}
+.div{border-top:1px solid var(--border);margin:12px 0;}
+
+/* metrics */
+.metric-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:10px;}
+.metric{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 11px;transition:border-color .4s;}
+.metric.improved{border-color:rgba(0,229,160,0.4);}
+.metric.degraded{border-color:rgba(255,77,109,0.4);}
+.mk{font-size:9px;font-family:'JetBrains Mono',monospace;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);}
+.mv{font-size:20px;font-weight:700;color:#fff;line-height:1.1;margin:2px 0;transition:color .4s;}
+.mu{font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace;}
+.md{font-size:11px;font-family:'JetBrains Mono',monospace;margin-top:3px;transition:color .4s;}
+
+/* tool buttons */
+.tool-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;}
+.tool{background:var(--surface2);border:1px solid var(--border);border-radius:10px;
+  padding:11px;cursor:pointer;transition:border-color .15s,background .15s;text-align:left;}
+.tool:hover{border-color:var(--border2);}
+.tool.active{background:rgba(0,229,160,0.07);}
+.tool-icon{font-size:18px;margin-bottom:5px;display:block;}
+.tool-name{font-size:11px;font-weight:600;color:#fff;}
+.tool-desc{font-size:10px;color:var(--muted);margin-top:2px;line-height:1.4;}
+
+/* buttons */
+.btn{border:none;border-radius:8px;cursor:pointer;font-family:'Syne',sans-serif;
+  font-weight:600;transition:opacity .15s,transform .1s;}
+.btn:hover{opacity:.85;}.btn:active{transform:scale(.97);}
+.btn-sm{padding:6px 11px;font-size:11px;}
+.btn-md{padding:8px 14px;font-size:12px;}
+.btn-full{width:100%;}
+.btn-primary{background:var(--green);color:#07090f;}
+.btn-ghost{background:var(--surface3);color:var(--muted);}
+.btn-red{background:rgba(255,77,109,0.12);color:var(--red);}
+
+/* action items */
+.action-item{background:var(--surface2);border:1px solid var(--border);border-radius:8px;
+  padding:9px 11px;margin-bottom:5px;display:flex;align-items:flex-start;gap:9px;}
+.action-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;margin-top:4px;}
+.action-remove{background:none;border:none;cursor:pointer;color:var(--muted);
+  font-size:13px;padding:1px 4px;border-radius:4px;transition:color .15s;margin-left:auto;}
+.action-remove:hover{color:var(--red);}
+
+/* compare bars */
+.cmp-row{display:flex;gap:8px;align-items:center;margin-bottom:5px;}
+.cmp-key{font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace;width:60px;flex-shrink:0;}
+.cmp-wrap{flex:1;height:5px;background:var(--dim);border-radius:3px;position:relative;overflow:hidden;}
+.cmp-base{position:absolute;top:0;left:0;height:100%;background:var(--muted);opacity:.35;border-radius:3px;}
+.cmp-sim{position:absolute;top:0;left:0;height:100%;border-radius:3px;transition:width .5s,background .5s;}
+.cmp-val{font-size:10px;font-family:'JetBrains Mono',monospace;width:90px;text-align:right;}
+
+/* toggle */
+.tog{width:34px;height:19px;border-radius:10px;border:none;cursor:pointer;
+  position:relative;transition:background .2s;background:var(--dim);}
+.tog.on{background:var(--green);}
+.tog-k{position:absolute;top:2px;left:2px;width:15px;height:15px;
+  border-radius:50%;background:#fff;transition:left .2s;pointer-events:none;}
+.tog.on .tog-k{left:17px;}
+
+/* badge */
+.badge{display:inline-flex;align-items:center;font-size:9px;font-family:'JetBrains Mono',monospace;
+  padding:2px 7px;border-radius:20px;letter-spacing:.5px;}
+.bg{background:rgba(0,229,160,.12);color:var(--green);}
+.ba{background:rgba(245,166,35,.12);color:var(--amber);}
+.br{background:rgba(255,77,109,.12);color:var(--red);}
+
+/* inputs */
+input[type=number],input[type=password]{
+  background:var(--surface3);border:1px solid var(--border);border-radius:7px;
+  color:var(--text);padding:7px 9px;font-size:12px;outline:none;
+  font-family:'JetBrains Mono',monospace;width:100%;transition:border-color .15s;}
+input[type=number]:focus,input[type=password]:focus{border-color:rgba(0,229,160,.4);}
+input[type=range]{width:100%;accent-color:var(--green);cursor:pointer;}
+
+/* timeline */
+#tl{position:absolute;bottom:0;left:0;right:0;
+  background:rgba(7,9,15,.94);backdrop-filter:blur(12px);
+  border-top:1px solid var(--border);padding:10px 18px;z-index:5;
+  display:flex;align-items:center;gap:14px;}
+.tl-lbl{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);white-space:nowrap;}
+.tl-yr{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--green);font-weight:500;min-width:48px;text-align:center;}
+
+/* toast */
+#toast{position:absolute;bottom:58px;left:50%;transform:translateX(-50%);z-index:20;
+  background:var(--surface2);border:1px solid var(--green);border-radius:8px;
+  padding:9px 16px;font-size:11px;color:var(--green);font-family:'JetBrains Mono',monospace;
+  opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap;}
+#toast.show{opacity:1;}
+
+/* map popup */
+.mapboxgl-popup-content{background:transparent!important;padding:0!important;box-shadow:none!important;}
+.mapboxgl-popup-tip{display:none!important;}
+.mapboxgl-ctrl-bottom-right,.mapboxgl-ctrl-bottom-left{bottom:50px!important;}
+
+/* placing cursor */
+body.placing{cursor:crosshair!important;}
+
+/* map hint */
+#hint{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  background:rgba(13,17,23,.92);border:1px solid var(--border2);border-radius:12px;
+  padding:18px 26px;text-align:center;z-index:6;pointer-events:none;transition:opacity .4s;}
+#hint.hidden{opacity:0;pointer-events:none;}
+
+
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- ══ LEFT ══ -->
+<div id="left">
+  <div class="panel-head">
+    <div class="logo">Eco<span>Sim</span></div>
+    <div style="font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-top:2px;">// Officer Environmental Dashboard</div>
+    <div style="margin:12px 0 0;display:flex;flex-direction:column;gap:6px;">
+      <div><div class="lbl">Mapbox Token</div><input type="password" id="token-in" placeholder="pk.eyJ1..."/></div>
+      <div style="display:flex;gap:6px;">
+        <div style="flex:1;"><div class="lbl">Latitude</div><input type="number" id="lat-in" value="19.076" step="0.01"/></div>
+        <div style="flex:1;"><div class="lbl">Longitude</div><input type="number" id="lng-in" value="72.877" step="0.01"/></div>
+      </div>
+      <button class="btn btn-primary btn-md btn-full" id="init-btn">Initialize Region</button>
+    </div>
+  </div>
+
+  <div class="panel-body">
+    <div class="div" style="margin-top:14px;"></div>
+    <div class="sec">Live Metrics</div>
+    <div class="metric-grid">
+      <div class="metric" id="card-aqi">
+        <div class="mk">AQI</div>
+        <div class="mv" id="m-aqi">142</div>
+        <div class="mu" id="mu-aqi">Unhealthy</div>
+        <div class="md" id="md-aqi" style="color:var(--muted);">baseline</div>
+      </div>
+      <div class="metric" id="card-wqi">
+        <div class="mk">WQI</div>
+        <div class="mv" id="m-wqi">38</div>
+        <div class="mu" id="mu-wqi">Poor</div>
+        <div class="md" id="md-wqi" style="color:var(--muted);">baseline</div>
+      </div>
+      <div class="metric" id="card-noise">
+        <div class="mk">Noise</div>
+        <div class="mv" id="m-noise">74</div>
+        <div class="mu">dB avg</div>
+        <div class="md" id="md-noise" style="color:var(--muted);">baseline</div>
+      </div>
+      <div class="metric" id="card-green">
+        <div class="mk">Green cover</div>
+        <div class="mv" id="m-green">11</div>
+        <div class="mu">% area</div>
+        <div class="md" id="md-green" style="color:var(--muted);">baseline</div>
+      </div>
+    </div>
+
+    <div class="div"></div>
+    <div class="sec">Data Layers</div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div style="width:9px;height:9px;border-radius:2px;background:#ff6b35;"></div>
+          <span style="font-size:12px;">Industries <span id="ind-count" style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--red);">(6 active)</span></span>
+        </div>
+        <button class="tog on" id="tog-ind" onclick="toggleLayer('industry',this)"><div class="tog-k"></div></button>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div style="width:9px;height:9px;border-radius:50%;background:#3b9eff;"></div>
+          <span style="font-size:12px;">Water bodies</span>
+        </div>
+        <button class="tog on" id="tog-water" onclick="toggleLayer('water',this)"><div class="tog-k"></div></button>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div style="width:9px;height:9px;border-radius:50%;background:#f5a623;opacity:.7;"></div>
+          <span style="font-size:12px;">AQI zones</span>
+        </div>
+        <button class="tog on" id="tog-aqi" onclick="toggleLayer('aqi',this)"><div class="tog-k"></div></button>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div style="width:9px;height:9px;border-radius:50%;background:#00e5a0;opacity:.7;"></div>
+          <span style="font-size:12px;">Green zones</span>
+        </div>
+        <button class="tog on" id="tog-green" onclick="toggleLayer('green',this)"><div class="tog-k"></div></button>
+      </div>
+    </div>
+
+    <div class="div"></div>
+    <div class="sec">Active Interventions <span id="iv-count" style="color:var(--green);font-family:'JetBrains Mono',monospace;">0</span></div>
+    <div id="iv-list"><div style="font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace;">No interventions yet.</div></div>
+    <div style="margin-top:10px;">
+      <button class="btn btn-red btn-sm btn-full" onclick="clearAll()">Clear all interventions</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MAP ══ -->
+<div id="map-wrap">
+  <div id="map"></div>
+  <div id="hint">
+    <div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:4px;">Initialize map first</div>
+    <div style="font-size:11px;color:var(--muted);">Enter token + coordinates → Initialize Region</div>
+  </div>
+  <div id="tl">
+    <span class="tl-lbl">Baseline</span>
+    <input type="range" id="tl-slider" min="0" max="60" value="0" style="flex:1;" oninput="scrubTime(this.value)"/>
+    <span class="tl-lbl">+60 months</span>
+    <span class="tl-yr" id="tl-now">Now</span>
+    <button class="btn btn-primary btn-sm" onclick="runSim()">▶  Run Simulation</button>
+  </div>
+  <div id="toast"></div>
+</div>
+
+<!-- ══ RIGHT ══ -->
+<div id="right">
+  <div class="panel-head">
+    <div style="font-size:14px;font-weight:700;color:#fff;">Intervention Tools</div>
+    <div style="font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-top:2px;">Select tool → click map to place</div>
+  </div>
+  <div class="panel-body">
+    <div style="margin-top:12px;" class="sec">Actions</div>
+    <div class="tool-grid" id="tool-grid">
+      <div class="tool active" id="tool-shutdown" onclick="selectTool('shutdown',this)" style="border-color:rgba(255,107,53,.5);">
+        <span class="tool-icon">🏭</span>
+        <div class="tool-name">Shut Down Industry</div>
+        <div class="tool-desc">Removes emission source. Big AQI + noise drop, WQI improves downstream.</div>
+      </div>
+      <div class="tool" id="tool-trees" onclick="selectTool('trees',this)">
+        <span class="tool-icon">🌳</span>
+        <div class="tool-name">Plant Trees</div>
+        <div class="tool-desc">Absorbs particulates, cools area, reduces noise. Effective near bad AQI zones.</div>
+      </div>
+      <div class="tool" id="tool-treatment" onclick="selectTool('treatment',this)">
+        <span class="tool-icon">💧</span>
+        <div class="tool-name">Water Treatment</div>
+        <div class="tool-desc">Installs tertiary treatment. Major WQI improvement for nearby water bodies.</div>
+      </div>
+      <div class="tool" id="tool-traffic" onclick="selectTool('traffic',this)">
+        <span class="tool-icon">🚗</span>
+        <div class="tool-name">Traffic Restriction</div>
+        <div class="tool-desc">Vehicle-free zone. Cuts NOx/PM2.5 and drops noise levels significantly.</div>
+      </div>
+      <div class="tool" id="tool-solar" onclick="selectTool('solar',this)">
+        <span class="tool-icon">☀️</span>
+        <div class="tool-name">Solar Farm</div>
+        <div class="tool-desc">Displaces coal. Regional AQI improvement, no direct noise impact.</div>
+      </div>
+      <div class="tool" id="tool-wetland" onclick="selectTool('wetland',this)">
+        <span class="tool-icon">🌿</span>
+        <div class="tool-name">Restore Wetland</div>
+        <div class="tool-desc">Natural biofiltration. WQI + green cover boost, mild AQI benefit.</div>
+      </div>
+    </div>
+
+    <div class="div"></div>
+    <div class="sec">Parameters</div>
+    <div id="tool-params" style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px;font-size:11px;color:var(--muted);">
+      Select a tool to configure.
+    </div>
+
+    <div class="div"></div>
+    <div class="sec">Before → After</div>
+    <div id="forecast" style="font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace;">
+      Place interventions and run simulation.
+    </div>
+
+    <div class="div"></div>
+    <div class="sec">Sim Settings</div>
+    <div style="display:flex;flex-direction:column;gap:9px;">
+      <div>
+        <div class="lbl">Effect radius: <span id="rad-val" style="color:var(--green);font-family:'JetBrains Mono',monospace;">2.0</span> km</div>
+        <input type="range" id="rad-sl" min="0.5" max="8" step="0.5" value="2" oninput="document.getElementById('rad-val').textContent=parseFloat(this.value).toFixed(1)"/>
+      </div>
+      <div>
+        <div class="lbl">Effect strength: <span id="str-val" style="color:var(--green);font-family:'JetBrains Mono',monospace;">100</span>%</div>
+        <input type="range" id="str-sl" min="20" max="100" step="10" value="100" oninput="document.getElementById('str-val').textContent=this.value"/>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div>
+<script>
+// ══════════════════════════════════════════════════════
+//  WORLD STATE
+// ══════════════════════════════════════════════════════
+
+// These are the town's baseline conditions
+const BASE = { aqi:142, wqi:38, noise:74, green:11 }
+
+// Each industry contributes to AQI, noise, and WQI (via effluent)
+// These get ACTUALLY removed from the world when a shutdown is placed on them
+const INDUSTRY_DEFS = [
+  { id:'i1', name:'Arvind Steel Mill',      emoji:'🏗',  aqi:52, noise:14, wqi:-12, lp:[0.030, 0.018]  },
+  { id:'i2', name:'Bharat Chemical Plant',  emoji:'⚗',  aqi:44, noise:9,  wqi:-18, lp:[-0.038, 0.012] },
+  { id:'i3', name:'Ganesh Cement Works',    emoji:'🏭',  aqi:31, noise:12, wqi:-6,  lp:[0.020,-0.028]  },
+  { id:'i4', name:'Kiran Textile Mill',     emoji:'🧵',  aqi:22, noise:8,  wqi:-14, lp:[-0.022,-0.018] },
+  { id:'i5', name:'Narmada Power Station',  emoji:'⚡',  aqi:58, noise:11, wqi:-8,  lp:[0.048,-0.010]  },
+  { id:'i6', name:'Ravi Plastics Factory',  emoji:'🏺',  aqi:26, noise:7,  wqi:-5,  lp:[-0.048, 0.028] },
+]
+
+// Tool effects per unit of deployment
+const TOOLS = {
+  shutdown:  { color:'#ff6b35', label:'Shut Down Industry',    aqi:-1,   noise:-1,   wqi:+1,   green:0   },  // multiplied by industry values
+  trees:     { color:'#00e5a0', label:'Plant Trees',           aqi:-22,  noise:-8,   wqi:+5,   green:+9  },
+  treatment: { color:'#3b9eff', label:'Water Treatment',       aqi:-2,   noise:-1,   wqi:+30,  green:+1  },
+  traffic:   { color:'#f5a623', label:'Traffic Restriction',   aqi:-28,  noise:-18,  wqi:+3,   green:+2  },
+  solar:     { color:'#fbbf24', label:'Solar Farm',            aqi:-34,  noise:-4,   wqi:+2,   green:0   },
+  wetland:   { color:'#a78bfa', label:'Restore Wetland',       aqi:-9,   noise:-5,   wqi:+26,  green:+7  },
+}
+
+const PARAM_DEFS = {
+  scale:    { label:'Facility scale', min:1, max:5, step:1,  val:3,   unit:'1–5'  },
+  hectares: { label:'Area planted',   min:5, max:200, step:5, val:40,  unit:'ha'   },
+  capacity: { label:'Capacity',       min:10, max:500,step:10,val:100, unit:'MLD'  },
+  area:     { label:'Zone size',      min:0.5, max:8, step:.5,val:2,   unit:'km²'  },
+  mw:       { label:'Capacity',       min:10, max:400,step:10,val:60,  unit:'MW'   },
+}
+
+const TOOL_PARAMS = {
+  shutdown:'scale', trees:'hectares', treatment:'capacity',
+  traffic:'area', solar:'mw', wetland:'hectares'
+}
+
+// ── Mutable world state ──
+let map = null
+let industries = []         // runtime copies, each has .active flag + marker ref
+let interventions = []      // placed actions
+let activeTool = 'shutdown'
+let placing = false
+let simDone = false
+let simResult = null
+let popupRef = null
+let paramVal = {}           // current param value per tool
+
+// preload defaults
+Object.keys(TOOL_PARAMS).forEach(t => {
+  paramVal[t] = PARAM_DEFS[TOOL_PARAMS[t]].val
+})
+
+// ══════════════════════════════════════════════════════
+//  HELPERS
+// ══════════════════════════════════════════════════════
+function toast(msg, c='var(--green)'){
+  const el=document.getElementById('toast')
+  el.textContent=msg; el.style.color=c; el.style.borderColor=c
+  el.classList.add('show'); clearTimeout(el._t)
+  el._t=setTimeout(()=>el.classList.remove('show'),3200)
+}
+
+function haversineKm(a, b){
+  const R=6371, dLat=(b.lat-a.lat)*Math.PI/180, dLng=(b.lng-a.lng)*Math.PI/180
+  const s=Math.sin(dLat/2)**2+Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.sin(dLng/2)**2
+  return R*2*Math.asin(Math.sqrt(s))
+}
+
+function circlePolygon(lat, lng, radiusM, n=52){
+  const R=6371000, pts=[]
+  for(let i=0;i<=n;i++){
+    const a=(i/n)*2*Math.PI
+    const dLat=(radiusM*Math.cos(a))/R*(180/Math.PI)
+    const dLng=(radiusM*Math.sin(a))/(R*Math.cos(lat*Math.PI/180))*(180/Math.PI)
+    pts.push([lng+dLng,lat+dLat])
+  }
+  return {type:'Polygon',coordinates:[pts]}
+}
+
+function aqiLabel(v){ return v<50?'Good':v<100?'Moderate':v<150?'Unhealthy*':v<200?'Unhealthy':v<300?'Very Unhealthy':'Hazardous' }
+function wqiLabel(v){ return v>=80?'Pristine':v>=60?'Good':v>=40?'Fair':v>=20?'Poor':'Critical' }
+function aqiColor(v){ return v<50?'#00e5a0':v<100?'#a3e635':v<150?'#facc15':v<200?'#fb923c':v<300?'#ef4444':'#a855f7' }
+function wqiColor(v){ return v>=80?'#22d3ee':v>=60?'#a3e635':v>=40?'#facc15':v>=20?'#fb923c':'#ef4444' }
+
+// ══════════════════════════════════════════════════════
+//  CORE SIMULATION — recompute everything from scratch
+// ══════════════════════════════════════════════════════
+function recompute(){
+  // 1. Start from base
+  let aqi=BASE.aqi, wqi=BASE.wqi, noise=BASE.noise, green=BASE.green
+
+  // 2. Subtract contributions of REMOVED industries
+  industries.forEach(ind => {
+    if(!ind.active){
+      aqi   -= ind.aqi
+      noise -= ind.noise
+      wqi   -= ind.wqi   // wqi contribution was negative (pollution), so subtracting negative = gain
+    }
+  })
+
+  // 3. Add effects of non-shutdown interventions
+  interventions.forEach(iv => {
+    if(iv.tool === 'shutdown') return  // handled above via industry.active
+    const t = TOOLS[iv.tool]
+    const scale = iv.paramScale   // 0..2+ based on param value
+    const str   = iv.strength     // 0..1
+
+    aqi   += t.aqi   * scale * str
+    noise += t.noise * scale * str
+    wqi   += t.wqi   * scale * str
+    green += t.green * scale * str
+  })
+
+  // 4. Synergy: trees near bad AQI zones get amplified
+  const treeCount = interventions.filter(i=>i.tool==='trees').length
+  const wetCount  = interventions.filter(i=>i.tool==='wetland').length
+  if(treeCount>0 && aqi>100){
+    // Trees are MORE effective when AQI is worse — bonus effect
+    aqi   -= treeCount * 8 * (aqi/200)
+    green += treeCount * 2
+  }
+  if(wetCount>0){ wqi += wetCount*5; green += wetCount*2 }
+
+  // 5. Clamp
+  aqi   = Math.max(5,   Math.min(500, aqi))
+  wqi   = Math.max(0,   Math.min(100, wqi))
+  noise = Math.max(30,  Math.min(100, noise))
+  green = Math.max(0,   Math.min(100, green))
+
+  simResult = { aqi:Math.round(aqi), wqi:Math.round(wqi), noise:Math.round(noise), green:Math.round(green) }
+  renderMetrics(simResult)
+  renderForecast()
+  updateMapLayers()
+  return simResult
+}
+
+// ══════════════════════════════════════════════════════
+//  METRIC DISPLAY
+// ══════════════════════════════════════════════════════
+function renderMetrics(vals){
+  const hasChanges = interventions.length > 0 || industries.some(i=>!i.active)
+
+  setMetric('aqi',   vals.aqi,   aqiLabel(vals.aqi),  vals.aqi - BASE.aqi,   true,  hasChanges)
+  setMetric('wqi',   vals.wqi,   wqiLabel(vals.wqi),  vals.wqi - BASE.wqi,   false, hasChanges)
+  setMetric('noise', vals.noise, vals.noise+'dB',      vals.noise-BASE.noise, true,  hasChanges)
+  setMetric('green', vals.green, vals.green+'% cover', vals.green-BASE.green, false, hasChanges)
+}
+
+function setMetric(key, val, unit, delta, lowerBetter, showDelta){
+  document.getElementById('m-'+key).textContent  = val
+  document.getElementById('mu-'+key) && (document.getElementById('mu-'+key).textContent = unit)
+  const md = document.getElementById('md-'+key)
+  const card = document.getElementById('card-'+key)
+  if(!showDelta || delta===0){
+    md.textContent='baseline'; md.style.color='var(--muted)'
+    card.classList.remove('improved','degraded')
+    return
+  }
+  const better = lowerBetter ? delta<0 : delta>0
+  const sign = delta>0?'+':''
+  md.textContent = sign+Math.round(delta)+' from baseline'
+  md.style.color = better?'var(--green)':'var(--red)'
+  card.classList.toggle('improved', better)
+  card.classList.toggle('degraded', !better)
+}
+
+// ══════════════════════════════════════════════════════
+//  MAP INIT
+// ══════════════════════════════════════════════════════
+async function initMap(){
+  const token=document.getElementById('token-in').value.trim()
+  if(!token){toast('Enter Mapbox token','var(--red)');return}
+  const lat=parseFloat(document.getElementById('lat-in').value)
+  const lng=parseFloat(document.getElementById('lng-in').value)
+
+  const btn=document.getElementById('init-btn')
+  btn.textContent='Initializing…';btn.disabled=true
+
+  mapboxgl.accessToken=token
+  map=new mapboxgl.Map({container:'map',style:'mapbox://styles/mapbox/dark-v11',
+    center:[lng,lat],zoom:12,attributionControl:false})
+  map.addControl(new mapboxgl.NavigationControl({showCompass:false}),'bottom-right')
+  await new Promise(r=>map.once('load',r))
+
+  seedWorld(lat,lng)
+  buildMapLayers()
+  renderIndustryMarkers()
+
+  map.on('click',e=>{ if(placing) placeIntervention(e.lngLat) })
+
+  document.getElementById('hint').classList.add('hidden')
+  btn.textContent='✓  Initialized';btn.disabled=false
+  toast('Region loaded — select tool and click map to place interventions')
+}
+
+// ══════════════════════════════════════════════════════
+//  SEED WORLD
+// ══════════════════════════════════════════════════════
+function seedWorld(lat,lng){
+  industries = INDUSTRY_DEFS.map(d=>({
+    ...d, active:true, marker:null,
+    lngLat:[lng+d.lp[0], lat+d.lp[1]]
+  }))
+  renderMetrics(BASE)
+}
+
+// ══════════════════════════════════════════════════════
+//  MAP LAYERS (AQI zones, green zones, interventions)
+// ══════════════════════════════════════════════════════
+function buildMapLayers(){
+  // AQI pollution cloud per active industry
+  map.addSource('aqi-src',{type:'geojson',data:buildAqiGeoJSON()})
+  map.addLayer({id:'aqi-fill',type:'fill',source:'aqi-src',paint:{'fill-color':['get','c'],'fill-opacity':0.18}})
+  map.addLayer({id:'aqi-line',type:'line',source:'aqi-src',paint:{'line-color':['get','c'],'line-width':1,'line-opacity':0.45,'line-dasharray':[3,2]}})
+
+  // Green zones (existing parks/forests)
+  map.addSource('green-src',{type:'geojson',data:buildGreenGeoJSON()})
+  map.addLayer({id:'green-fill',type:'fill',source:'green-src',paint:{'fill-color':'#00e5a0','fill-opacity':0.14}})
+
+  // Intervention radius rings (updated dynamically)
+  map.addSource('iv-src',{type:'geojson',data:{type:'FeatureCollection',features:[]}})
+  map.addLayer({id:'iv-fill',type:'fill',source:'iv-src',paint:{'fill-color':['get','c'],'fill-opacity':0.07}})
+  map.addLayer({id:'iv-line',type:'line',source:'iv-src',paint:{'line-color':['get','c'],'line-width':1.5,'line-opacity':0.5,'line-dasharray':[4,3]}})
+}
+
+function buildAqiGeoJSON(){
+  const feats = industries.filter(i=>i.active).map(ind=>({
+    type:'Feature',
+    geometry: circlePolygon(ind.lngLat[1], ind.lngLat[0], ind.aqi*18),
+    properties:{ c: aqiColor(ind.aqi*2.5), aqi:ind.aqi }
+  }))
+  // Add intervention tree zones that have improved AQI
+  interventions.filter(i=>['trees','solar','traffic'].includes(i.tool)).forEach(iv=>{
+    feats.push({
+      type:'Feature',
+      geometry: circlePolygon(iv.lngLat.lat, iv.lngLat.lng, iv.radius*0.6),
+      properties:{ c:'#00e5a0', aqi:0 }
+    })
+  })
+  return {type:'FeatureCollection',features:feats}
+}
+
+function buildGreenGeoJSON(){
+  const lat=parseFloat(document.getElementById('lat-in').value)||19.076
+  const lng=parseFloat(document.getElementById('lng-in').value)||72.877
+  return {type:'FeatureCollection',features:[
+    {type:'Feature',geometry:circlePolygon(lat+0.04,lng-0.01,380),properties:{}},
+    {type:'Feature',geometry:circlePolygon(lat-0.04,lng+0.03,280),properties:{}},
+  ]}
+}
+
+function buildIvGeoJSON(){
+  return {type:'FeatureCollection',features:
+    interventions.filter(i=>i.tool!=='shutdown').map(iv=>({
+      type:'Feature',
+      geometry:circlePolygon(iv.lngLat.lat,iv.lngLat.lng,iv.radius),
+      properties:{c:TOOLS[iv.tool].color}
+    }))
+  }
+}
+
+function updateMapLayers(){
+  if(!map||!map.getSource('aqi-src')) return
+  map.getSource('aqi-src').setData(buildAqiGeoJSON())
+  map.getSource('iv-src').setData(buildIvGeoJSON())
+}
+
+// ══════════════════════════════════════════════════════
+//  INDUSTRY MARKERS
+// ══════════════════════════════════════════════════════
+function renderIndustryMarkers(){
+  industries.forEach(ind=>{
+    if(ind.marker) ind.marker.remove()
+    const el=document.createElement('div')
+    el.style.cssText=`
+      width:30px;height:30px;border-radius:7px;cursor:pointer;
+      background:rgba(255,107,53,0.2);border:2px solid #ff6b35;
+      display:flex;align-items:center;justify-content:center;
+      font-size:15px;transition:opacity .4s;
+      box-shadow:0 0 10px rgba(255,107,53,0.4);
+    `
+    el.textContent=ind.emoji
+    el.title=ind.name
+    el.addEventListener('click',e=>{ e.stopPropagation(); showIndustryPopup(ind,e) })
+    ind.marker=new mapboxgl.Marker({element:el}).setLngLat(ind.lngLat).addTo(map)
+    if(!ind.active) dimMarker(ind)
+  })
+}
+
+function dimMarker(ind){
+  if(!ind.marker) return
+  const el=ind.marker.getElement()
+  el.style.opacity='0.25'
+  el.style.filter='grayscale(1)'
+  el.style.pointerEvents='none'
+}
+
+function restoreMarker(ind){
+  if(!ind.marker) return
+  const el=ind.marker.getElement()
+  el.style.opacity='1'
+  el.style.filter='none'
+  el.style.pointerEvents='auto'
+}
+
+function showIndustryPopup(ind){
+  if(popupRef) popupRef.remove()
+  popupRef=new mapboxgl.Popup({closeButton:true,offset:18})
+    .setLngLat(ind.lngLat)
+    .setHTML(`<div style="
+      font-family:'JetBrains Mono',monospace;font-size:11px;color:#dde4f0;
+      background:#0d1117;padding:13px 16px;border-radius:10px;
+      border:1px solid rgba(255,107,53,0.35);min-width:200px;">
+      <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#5a6a82;margin-bottom:6px;">Industry</div>
+      <div style="font-size:15px;font-weight:700;margin-bottom:10px;font-family:'Syne',sans-serif;">${ind.emoji} ${ind.name}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px;">
+        <div style="background:#131b26;border-radius:6px;padding:6px 8px;">
+          <div style="font-size:9px;color:#5a6a82;text-transform:uppercase;letter-spacing:1px;">AQI impact</div>
+          <div style="font-size:16px;color:#ff6b35;font-weight:700;">+${ind.aqi}</div>
+        </div>
+        <div style="background:#131b26;border-radius:6px;padding:6px 8px;">
+          <div style="font-size:9px;color:#5a6a82;text-transform:uppercase;letter-spacing:1px;">Noise</div>
+          <div style="font-size:16px;color:#f5a623;font-weight:700;">+${ind.noise}dB</div>
+        </div>
+        <div style="background:#131b26;border-radius:6px;padding:6px 8px;">
+          <div style="font-size:9px;color:#5a6a82;text-transform:uppercase;letter-spacing:1px;">WQI impact</div>
+          <div style="font-size:16px;color:#ef4444;font-weight:700;">${ind.wqi}</div>
+        </div>
+        <div style="background:#131b26;border-radius:6px;padding:6px 8px;">
+          <div style="font-size:9px;color:#5a6a82;text-transform:uppercase;letter-spacing:1px;">Status</div>
+          <div style="font-size:13px;color:${ind.active?'#ff6b35':'#00e5a0'};font-weight:700;">${ind.active?'ACTIVE':'SHUT DOWN'}</div>
+        </div>
+      </div>
+      ${ind.active
+        ? `<button onclick="quickShutdown('${ind.id}')" style="
+            width:100%;background:rgba(255,107,53,0.15);border:1px solid rgba(255,107,53,0.4);
+            color:#ff6b35;border-radius:7px;padding:7px;font-size:11px;cursor:pointer;
+            font-family:'Syne',sans-serif;font-weight:700;">
+            Shut Down This Facility →
+          </button>`
+        : `<div style="text-align:center;color:#00e5a0;font-size:11px;">✓ Shutdown intervention placed</div>`
+      }
+    </div>`)
+    .addTo(map)
+}
+
+// ══════════════════════════════════════════════════════
+//  TOOL SELECTION
+// ══════════════════════════════════════════════════════
+function selectTool(name, el){
+  activeTool=name
+  document.querySelectorAll('.tool').forEach(t=>{
+    t.classList.remove('active')
+    t.style.borderColor=''
+  })
+  el.classList.add('active')
+  el.style.borderColor=TOOLS[name].color+'80'
+  renderToolParams(name)
+  placing=true
+  document.body.classList.add('placing')
+  toast(`Click map to place: ${TOOLS[name].label}`)
+}
+
+function renderToolParams(name){
+  const pk = TOOL_PARAMS[name]
+  const p  = PARAM_DEFS[pk]
+  const t  = TOOLS[name]
+  const curr = paramVal[name]
+
+  document.getElementById('tool-params').innerHTML=`
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">
+      <span class="badge ${t.aqi<0?'bg':'br'}">AQI ${t.aqi>0?'+':''}${t.aqi}</span>
+      <span class="badge ${t.noise<0?'bg':'br'}">Noise ${t.noise>0?'+':''}${t.noise}dB</span>
+      <span class="badge ${t.wqi>0?'bg':'br'}">WQI ${t.wqi>0?'+':''}${t.wqi}</span>
+      ${t.green?`<span class="badge bg">Green +${t.green}%</span>`:''}
+    </div>
+    <div>
+      <div class="lbl">${p.label}: <span id="pv" style="color:var(--green);font-family:'JetBrains Mono',monospace;">${curr} ${p.unit}</span></div>
+      <input type="range" min="${p.min}" max="${p.max}" step="${p.step}" value="${curr}"
+        oninput="paramVal['${name}']=parseFloat(this.value);document.getElementById('pv').textContent=this.value+' ${p.unit}'"/>
+    </div>
+  `
+}
+
+// ══════════════════════════════════════════════════════
+//  PLACE INTERVENTION
+// ══════════════════════════════════════════════════════
+function placeIntervention(lngLat){
+  const radius = parseFloat(document.getElementById('rad-sl').value)*1000
+  const str    = parseFloat(document.getElementById('str-sl').value)/100
+  const pv     = paramVal[activeTool]
+  const pd     = PARAM_DEFS[TOOL_PARAMS[activeTool]]
+  const scale  = pv / pd.val   // normalize to default
+
+  if(activeTool==='shutdown'){
+    // Find nearest active industry within 1.5km
+    let nearest=null, nearDist=Infinity
+    industries.forEach(ind=>{
+      if(!ind.active) return
+      const d=haversineKm({lat:lngLat.lat,lng:lngLat.lng},{lat:ind.lngLat[1],lng:ind.lngLat[0]})
+      if(d<nearDist){nearDist=d;nearest=ind}
+    })
+
+    if(!nearest || nearDist>1.5){
+      toast('No active industry within 1.5km — click closer to a factory','var(--amber)')
+      return
+    }
+
+    // DEACTIVATE the industry — this is the key fix
+    nearest.active=false
+    dimMarker(nearest)
+    updateIndustryCount()
+
+    const iv={
+      id:'iv-'+Date.now(), tool:'shutdown',
+      lngLat, radius, strength:str, paramScale:scale,
+      industryId:nearest.id,
+      marker:spawnMarker(lngLat,'🔕','#ff6b35')
+    }
+    interventions.push(iv)
+    toast(`${nearest.name} shut down — AQI -${nearest.aqi}, Noise -${nearest.noise}dB`)
+  } else {
+    const iv={
+      id:'iv-'+Date.now(), tool:activeTool,
+      lngLat, radius, strength:str, paramScale:scale,
+      marker:spawnMarker(lngLat, toolEmoji(activeTool), TOOLS[activeTool].color)
+    }
+    interventions.push(iv)
+    toast(`${TOOLS[activeTool].label} placed`)
+  }
+
+  placing=false
+  document.body.classList.remove('placing')
+  renderIvList()
+  recompute()
+}
+
+function spawnMarker(lngLat, emoji, color){
+  const el=document.createElement('div')
+  el.style.cssText=`
+    width:30px;height:30px;border-radius:8px;cursor:default;
+    background:${color}18;border:2px solid ${color};
+    display:flex;align-items:center;justify-content:center;font-size:15px;
+    box-shadow:0 0 10px ${color}44;
+  `
+  el.textContent=emoji
+  return new mapboxgl.Marker({element:el}).setLngLat(lngLat).addTo(map)
+}
+
+function toolEmoji(t){
+  return {shutdown:'🔕',trees:'🌳',treatment:'💧',traffic:'🚫',solar:'☀️',wetland:'🌿'}[t]
+}
+
+function updateIndustryCount(){
+  const active=industries.filter(i=>i.active).length
+  document.getElementById('ind-count').textContent=`(${active} active)`
+  document.getElementById('ind-count').style.color=active>3?'var(--red)':active>1?'var(--amber)':'var(--green)'
+}
+
+// ══════════════════════════════════════════════════════
+//  INTERVENTIONS LIST
+// ══════════════════════════════════════════════════════
+function renderIvList(){
+  document.getElementById('iv-count').textContent=interventions.length
+  if(!interventions.length){
+    document.getElementById('iv-list').innerHTML='<div style="font-size:11px;color:var(--muted);font-family:\'JetBrains Mono\',monospace;">No interventions yet.</div>'
+    return
+  }
+  document.getElementById('iv-list').innerHTML=interventions.map(iv=>{
+    const t=TOOLS[iv.tool]
+    let detail=''
+    if(iv.tool==='shutdown'){
+      const ind=industries.find(i=>i.id===iv.industryId)
+      detail=ind?`AQI -${ind.aqi} · Noise -${ind.noise}dB · WQI +${Math.abs(ind.wqi)}`:'removed'
+    } else {
+      detail=`AQI ${t.aqi>0?'+':''}${t.aqi} · WQI ${t.wqi>0?'+':''}${t.wqi}`
+    }
+    return `<div class="action-item">
+      <div class="action-dot" style="background:${t.color};margin-top:3px;"></div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:12px;color:#fff;font-weight:600;">${t.label}</div>
+        <div style="font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-top:1px;">${detail}</div>
+      </div>
+      <button class="action-remove" onclick="removeIv('${iv.id}')">✕</button>
+    </div>`
+  }).join('')
+}
+
+function removeIv(id){
+  const iv=interventions.find(i=>i.id===id); if(!iv) return
+  iv.marker.remove()
+
+  if(iv.tool==='shutdown'){
+    const ind=industries.find(i=>i.id===iv.industryId)
+    if(ind){ ind.active=true; restoreMarker(ind) }
+    updateIndustryCount()
+  }
+
+  interventions=interventions.filter(i=>i.id!==id)
+  renderIvList()
+  recompute()
+}
+
+function clearAll(){
+  [...interventions].forEach(iv=>removeIv(iv.id))
+}
+
+function quickShutdown(indId){
+  if(popupRef){popupRef.remove();popupRef=null}
+  selectTool('shutdown',document.getElementById('tool-shutdown'))
+  const ind=industries.find(i=>i.id===indId)
+  if(ind) map.flyTo({center:ind.lngLat,zoom:14,duration:600})
+  toast(`Click near ${ind.name} to place shutdown`)
+}
+
+// ══════════════════════════════════════════════════════
+//  FORECAST BARS
+// ══════════════════════════════════════════════════════
+function renderForecast(){
+  const r=simResult||BASE
+  const hasChange=interventions.length>0||industries.some(i=>!i.active)
+  if(!hasChange){
+    document.getElementById('forecast').innerHTML=
+      '<div style="font-size:11px;color:var(--muted);font-family:\'JetBrains Mono\',monospace;">Place interventions and run simulation.</div>'
+    return
+  }
+  const metrics=[
+    {k:'AQI',   b:BASE.aqi,   a:r.aqi,   max:250, lo:true },
+    {k:'WQI',   b:BASE.wqi,   a:r.wqi,   max:100, lo:false},
+    {k:'Noise', b:BASE.noise, a:r.noise, max:100, lo:true },
+    {k:'Green', b:BASE.green, a:r.green, max:60,  lo:false},
+  ]
+  let html=''
+  metrics.forEach(m=>{
+    const bp=Math.min(100,(m.b/m.max)*100)
+    const ap=Math.min(100,(m.a/m.max)*100)
+    const better=m.lo?m.a<m.b:m.a>m.b
+    const bc=better?'var(--green)':'var(--red)'
+    const delta=Math.round(m.a-m.b), sign=delta>0?'+':''
+    html+=`<div class="cmp-row">
+      <span class="cmp-key">${m.k}</span>
+      <div class="cmp-wrap">
+        <div class="cmp-base" style="width:${bp}%"></div>
+        <div class="cmp-sim" style="width:${ap}%;background:${bc}"></div>
+      </div>
+      <span class="cmp-val" style="color:${bc}">${m.b}→${Math.round(m.a)} <span style="color:${bc}">(${sign}${delta})</span></span>
+    </div>`
+  })
+  const shutdowns=interventions.filter(i=>i.tool==='shutdown').length
+  const trees=interventions.filter(i=>i.tool==='trees').length
+  html+=`<div style="margin-top:10px;font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace;">
+    ${shutdowns} shutdown${shutdowns!==1?'s':''} · ${trees} tree zone${trees!==1?'s':''} · ${interventions.length} total interventions
+  </div>`
+  document.getElementById('forecast').innerHTML=html
+}
+
+// ══════════════════════════════════════════════════════
+//  TIMELINE SCRUB
+// ══════════════════════════════════════════════════════
+function runSim(){
+  if(!simResult&&interventions.length===0){toast('Place interventions first','var(--amber)');return}
+  recompute()
+  simDone=true
+  document.getElementById('tl-slider').value=0
+  document.getElementById('tl-now').textContent='Now'
+  toast('Simulation run — drag timeline to see projected changes over time')
+}
+
+function scrubTime(months){
+  const m=parseInt(months)
+  document.getElementById('tl-now').textContent=m===0?'Now':`+${m}mo`
+  if(!simResult||m===0){renderMetrics(BASE);return}
+  const t=Math.min(1,m/18)
+  const lerp=(a,b)=>a+(b-a)*t
+  renderMetrics({
+    aqi:  Math.round(lerp(BASE.aqi,   simResult.aqi)),
+    wqi:  Math.round(lerp(BASE.wqi,   simResult.wqi)),
+    noise:Math.round(lerp(BASE.noise, simResult.noise)),
+    green:Math.round(lerp(BASE.green, simResult.green)),
+  })
+}
+
+// ══════════════════════════════════════════════════════
+//  LAYER TOGGLES
+// ══════════════════════════════════════════════════════
+function toggleLayer(name,btn){
+  btn.classList.toggle('on')
+  const vis=btn.classList.contains('on')
+  if(name==='industry') industries.forEach(i=>i.marker&&(i.marker.getElement().style.display=vis?'flex':'none'))
+  if(name==='aqi'&&map&&map.getLayer('aqi-fill')){
+    map.setLayoutProperty('aqi-fill','visibility',vis?'visible':'none')
+    map.setLayoutProperty('aqi-line','visibility',vis?'visible':'none')
+  }
+  if(name==='green'&&map&&map.getLayer('green-fill'))
+    map.setLayoutProperty('green-fill','visibility',vis?'visible':'none')
+}
+
+// ══════════════════════════════════════════════════════
+//  BOOT
+// ══════════════════════════════════════════════════════
+document.getElementById('init-btn').addEventListener('click',initMap)
+selectTool('shutdown',document.getElementById('tool-shutdown'))
+renderMetrics(BASE)
+</script>
+</body>
+</html>

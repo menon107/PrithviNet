@@ -179,7 +179,9 @@ export default function MapView({
             idToCenter.set(f.id, { lon, lat });
           }
         });
-        const MAX_DIST_KM = 8;
+        // Max distance within which an industry can significantly affect a water body.
+        // Previously 8 km; tuned down to 4 km to make impact more local and realistic.
+        const MAX_DIST_KM = 4;
         newLayers.forEach((layer) => {
           const center = idToCenter.get(layer.id);
           if (!center) return;
@@ -201,6 +203,7 @@ export default function MapView({
             layer.color = wqiToColor(wqi);
             layer.industryId = nearest._id;
             layer.industryName = nearest.name;
+            layer.industryDistanceKm = best;
           }
         });
       }

@@ -112,22 +112,31 @@ const checkNoise = (noiseData, industry) => {
 };
 
 /**
- * Compute score: start at 100, deduct points per violation scaled by excess %
+ * Compute score: start at 100, gently deduct points per violation.
+ * This keeps scores more stable and uniformly distributed, while still
+ * clearly penalising serious, repeated breaches.
  */
 const computeScore = (violations) => {
   if (!violations.length) return 100;
+
   let deductions = 0;
   for (const v of violations) {
     const excess = parseFloat(v.excess_percentage) || 0;
-    deductions += Math.min(30, 10 + excess * 0.5);
+    // Base deduction per parameter plus scaled component; softly capped
+    const perViolation = 4 + excess * 0.25;
+    deductions += Math.min(18, perViolation);
   }
+
+  // Global cap so even many small violations don't instantly drop to zero
+  deductions = Math.min(60, deductions);
   return Math.max(0, Math.round(100 - deductions));
 };
 
 const getStatus = (score, violations) => {
   if (!violations.length) return 'compliant';
+  if (score >= 85) return 'compliant';
   if (score >= 70) return 'warning';
-  if (score >= 40) return 'violation';
+  if (score >= 50) return 'violation';
   return 'critical';
 };
 

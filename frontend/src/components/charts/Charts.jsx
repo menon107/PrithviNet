@@ -2,7 +2,7 @@ import React from 'react';
 import {
   ResponsiveContainer, AreaChart, Area, LineChart, Line,
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  ReferenceLine, Legend,
+  ReferenceLine, Legend, Cell,
 } from 'recharts';
 import { format } from 'date-fns';
 
@@ -191,3 +191,121 @@ export const PollutantBarChart = ({ data, height = 220 }) => {
     </ResponsiveContainer>
   );
 };
+
+// Single-reading snapshot: all air metrics as bar chart (one data point)
+const AIR_BAR_KEYS = [
+  { key: 'pm25', name: 'PM2.5', color: '#14b369', unit: 'µg/m³' },
+  { key: 'pm10', name: 'PM10', color: '#0ea5e9', unit: 'µg/m³' },
+  { key: 'so2', name: 'SO₂', color: '#a78bfa', unit: 'µg/m³' },
+  { key: 'no2', name: 'NO₂', color: '#f79009', unit: 'µg/m³' },
+  { key: 'co', name: 'CO', color: '#ef4444', unit: 'µg/m³' },
+];
+export const AirSnapshotChart = ({ air = {}, height = 180 }) => {
+  const data = AIR_BAR_KEYS.map(({ key, name, color }) => ({
+    name,
+    value: air[key] != null ? Number(air[key]) : null,
+    fill: color,
+  })).filter((d) => d.value != null);
+  if (!data.length) return <div className="text-xs" style={{ color: 'var(--text-muted)' }}>No air data</div>;
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <BarChart data={data} layout="vertical" margin={{ left: 8, right: 8 }} style={CHART_STYLE}>
+        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false} />
+        <XAxis type="number" stroke="#4a5875" tick={{ fill: '#4a5875', fontSize: 10 }} tickLine={false} />
+        <YAxis type="category" dataKey="name" width={42} stroke="#4a5875" tick={{ fill: '#4a5875', fontSize: 10 }} tickLine={false} axisLine={false} />
+        <Tooltip content={({ active, payload }) => active && payload?.[0] && (
+          <div className="card p-2 text-xs">
+            {payload[0].payload.name}: {Number(payload[0].value).toFixed(1)} µg/m³
+          </div>
+        )} />
+        <Bar dataKey="value" name="Value" radius={[0, 3, 3, 0]}>
+          {data.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
+        </Bar>
+      </BarChart>
+    </ResponsiveContainer>
+  );
+};
+
+const WATER_BAR_KEYS = [
+  { key: 'ph', name: 'pH', color: '#22c55e', unit: '' },
+  { key: 'bod', name: 'BOD', color: '#f97316', unit: 'mg/L' },
+  { key: 'cod', name: 'COD', color: '#a78bfa', unit: 'mg/L' },
+  { key: 'tss', name: 'TSS', color: '#64748b', unit: 'mg/L' },
+  { key: 'turbidity', name: 'Turb.', color: '#0ea5e9', unit: 'NTU' },
+];
+export const WaterSnapshotChart = ({ water = {}, height = 180 }) => {
+  const data = WATER_BAR_KEYS.map(({ key, name, color }) => ({
+    name,
+    value: water[key] != null ? Number(water[key]) : null,
+    fill: color,
+  })).filter((d) => d.value != null);
+  if (!data.length) return <div className="text-xs" style={{ color: 'var(--text-muted)' }}>No water data</div>;
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <BarChart data={data} layout="vertical" margin={{ left: 8, right: 8 }} style={CHART_STYLE}>
+        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false} />
+        <XAxis type="number" stroke="#4a5875" tick={{ fill: '#4a5875', fontSize: 10 }} tickLine={false} />
+        <YAxis type="category" dataKey="name" width={48} stroke="#4a5875" tick={{ fill: '#4a5875', fontSize: 10 }} tickLine={false} axisLine={false} />
+        <Tooltip content={({ active, payload }) => active && payload?.[0] && (
+          <div className="card p-2 text-xs">
+            {payload[0].payload.name}: {Number(payload[0].value).toFixed(2)}
+          </div>
+        )} />
+        <Bar dataKey="value" name="Value" radius={[0, 3, 3, 0]}>
+          {data.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
+        </Bar>
+      </BarChart>
+    </ResponsiveContainer>
+  );
+};
+
+const NOISE_BAR_KEYS = [
+  { key: 'day_db', name: 'Day', color: '#0ea5e9', unit: 'dB' },
+  { key: 'night_db', name: 'Night', color: '#22c55e', unit: 'dB' },
+  { key: 'peak_db', name: 'Peak', color: '#ef4444', unit: 'dB' },
+];
+export const NoiseSnapshotChart = ({ noise = {}, height = 120 }) => {
+  const data = NOISE_BAR_KEYS.map(({ key, name, color }) => ({
+    name,
+    value: noise[key] != null ? Number(noise[key]) : null,
+    fill: color,
+  })).filter((d) => d.value != null);
+  if (!data.length) return <div className="text-xs" style={{ color: 'var(--text-muted)' }}>No noise data</div>;
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <BarChart data={data} layout="vertical" margin={{ left: 8, right: 8 }} style={CHART_STYLE}>
+        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false} />
+        <XAxis type="number" stroke="#4a5875" tick={{ fill: '#4a5875', fontSize: 10 }} tickLine={false} />
+        <YAxis type="category" dataKey="name" width={40} stroke="#4a5875" tick={{ fill: '#4a5875', fontSize: 10 }} tickLine={false} axisLine={false} />
+        <Tooltip content={({ active, payload }) => active && payload?.[0] && (
+          <div className="card p-2 text-xs">{payload[0].payload.name}: {Number(payload[0].value).toFixed(0)} dB</div>
+        )} />
+        <Bar dataKey="value" name="dB" radius={[0, 3, 3, 0]}>
+          {data.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
+        </Bar>
+      </BarChart>
+    </ResponsiveContainer>
+  );
+};
+
+export function getReadingInsight(air = {}, water = {}, noise = {}) {
+  const points = [];
+  const pm25 = air.pm25 != null ? Number(air.pm25) : null;
+  if (pm25 != null) {
+    if (pm25 > 150) points.push('PM2.5 very high — consider emission controls and health advisories.');
+    else if (pm25 > 100) points.push('PM2.5 elevated — moderate health risk; monitor and reduce sources.');
+    else if (pm25 > 60) points.push('PM2.5 in moderate range; maintain monitoring.');
+  }
+  const pm10 = air.pm10 != null ? Number(air.pm10) : null;
+  if (pm10 != null && pm10 > 120) points.push('PM10 above typical guideline; check dust and combustion sources.');
+  const ph = water.ph != null ? Number(water.ph) : null;
+  if (ph != null && (ph < 6.5 || ph > 8.5)) points.push('pH outside 6.5–8.5 — review discharge and treatment.');
+  const bod = water.bod != null ? Number(water.bod) : null;
+  if (bod != null && bod > 30) points.push('BOD high — strengthen wastewater treatment.');
+  const cod = water.cod != null ? Number(water.cod) : null;
+  if (cod != null && cod > 250) points.push('COD elevated — reduce organic load or improve treatment.');
+  const peak = noise.peak_db != null ? Number(noise.peak_db) : null;
+  if (peak != null && peak > 75) points.push('Peak noise exceeds 75 dB — consider barriers or operational timing.');
+  if (points.length === 0) points.push('Readings within typical ranges; continue routine monitoring.');
+  return points.join(' ');
+}

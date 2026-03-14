@@ -32,18 +32,60 @@ const getIndustries = async (req, res, next) => {
     const latestByIndustry = await MonitoringReport.aggregate([
       { $match: { industry_id: { $in: industryIds } } },
       { $sort: { date: -1 } },
-      { $group: { _id: '$industry_id', compliance_score: { $first: '$compliance_score' }, compliance_status: { $first: '$compliance_status' } } },
+      {
+        $group: {
+          _id: '$industry_id',
+          compliance_score: { $first: '$compliance_score' },
+          compliance_status: { $first: '$compliance_status' },
+          last_20_scores: { $push: '$compliance_score' },
+        },
+      },
     ]);
     const complianceByIndustryId = Object.fromEntries(
-      latestByIndustry.map((r) => [r._id.toString(), { score: r.compliance_score, status: r.compliance_status }])
+      latestByIndustry.map((r) => {
+        const scores = (r.last_20_scores || []).slice(0, 20).filter((s) => typeof s === 'number');
+        const criticalDays = scores.filter((s) => s < 40).length;
+        const violationDays = scores.filter((s) => s >= 40 && s < 60).length;
+        const severeRun = criticalDays + violationDays;
+
+        let smartWarning = null;
+        if (scores.length >= 10 && criticalDays >= 5) {
+          smartWarning = 'Critical: frequent severe violations in last 20 days';
+        } else if (scores.length >= 10 && severeRun >= 10) {
+          smartWarning = 'Warning: persistent low compliance over recent period';
+        }
+
+        let inspectionFlag = null;
+        if (criticalDays >= 8) {
+          inspectionFlag = 'Immediate inspection recommended';
+        } else if (criticalDays >= 4 && violationDays >= 6) {
+          inspectionFlag = 'High priority inspection in next cycle';
+        } else if (severeRun >= 6) {
+          inspectionFlag = 'Add to upcoming inspection plan';
+        }
+
+        return [
+          r._id.toString(),
+          {
+            score: r.compliance_score,
+            status: r.compliance_status,
+            smartWarning,
+            inspectionFlag,
+          },
+        ];
+      })
     );
 
     const enriched = industries.map((ind) => {
-      const fromReport = complianceByIndustryId[ind._id.toString()];
+      const fromReport = complianceByIndustryId[ind._id.toString()] || {};
       return {
         ...ind,
-        compliance_score: fromReport?.score != null ? fromReport.score : ind.compliance_score,
-        compliance_status: fromReport?.status != null ? fromReport.status : ind.compliance_status,
+        compliance_score:
+          fromReport.score != null ? fromReport.score : ind.compliance_score,
+        compliance_status:
+          fromReport.status != null ? fromReport.status : ind.compliance_status,
+        smart_warning: fromReport.smartWarning || null,
+        inspection_recommendation: fromReport.inspectionFlag || null,
       };
     });
     // Sort by actual compliance (worst first)

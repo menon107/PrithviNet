@@ -4,7 +4,7 @@ import MapView from './MapView';
 import ControlPanel from './ControlPanel';
 import Legend from './Legend';
 import GoogleAQILayer from './GoogleAQILayer';
-import { industriesAPI } from '../../services/api';
+import { industriesAPI, warningsAPI } from '../../services/api';
 import { simulateTick, triggerSpill, cleanSegment, pollutionLabel } from './simulation/engine';
 import { computeWQI, wqiToColor, wqiGrade } from './simulation/wqi';
 
@@ -228,6 +228,31 @@ export default function WaterSimulationPane({ height = '420px', defaultCenter, r
     setToast('All reset to pristine');
   }, []);
 
+  const handleWarnIndustry = useCallback(async () => {
+    if (!liveSelected || !liveSelected.industryId) {
+      setToast('No linked industry for this water body segment.');
+      return;
+    }
+    try {
+      const wqi = liveSelected.wqi ?? null;
+      const severity = wqi != null && wqi < 40 ? 'critical' : wqi != null && wqi < 60 ? 'high' : 'medium';
+      await warningsAPI.create({
+        industry_id: liveSelected.industryId,
+        subject: 'Water contamination near monitored water body',
+        message: `PrithviNet has detected degraded water quality (WQI ${wqi ?? 'N/A'}) in '${liveSelected.name || liveSelected.id}' likely influenced by your effluent discharge. Please regulate emissions and implement immediate control measures.`,
+        action_items: [
+          'Review and adjust effluent treatment operations',
+          'Submit updated water quality report within 24 hours',
+        ],
+        priority: severity,
+      });
+      setToast('Control warning sent to industry.');
+    } catch (e) {
+      console.error(e);
+      setToast('Failed to send warning to industry.');
+    }
+  }, [liveSelected]);
+
   const handleLoaded = useCallback((n) => { setLoading(false); setToast(`Loaded ${n} water segments`); }, []);
   const handleFetchError = useCallback(() => { setLoading(false); setToast('Overpass API error'); }, []);
 
@@ -305,6 +330,7 @@ export default function WaterSimulationPane({ height = '420px', defaultCenter, r
         googleAqiMapType={googleAqiMapType}
         setGoogleAqiMapType={setGoogleAqiMapType}
         hasGoogleAqiKey={!!googleAqiKey}
+        onWarnIndustry={handleWarnIndustry}
       />
 
       {toast && (

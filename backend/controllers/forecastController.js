@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const Forecast = require('../models/Forecast');
+const Industry = require('../models/Industry');
 const { ROLES } = require('../config/roles');
 
 function normalizeRegionId(rid) {
@@ -23,6 +24,19 @@ const getForecasts = async (req, res, next) => {
       Object.assign(filter, {
         $or: [{ forecast_date: dateQ }, { date: dateQ }],
       });
+    }
+
+    // Region scoping: regional officers only see forecasts relevant to their region.
+    if (req.user?.role === ROLES.REGIONAL_OFFICER) {
+      const officerRegionId = normalizeRegionId(req.user.region_id);
+      if (officerRegionId) {
+        const industryIds = await Industry.find({ region_id: officerRegionId }).distinct('_id');
+        filter.$or = [
+          ...(filter.$or || []),
+          { region_id: officerRegionId },
+          { industry_id: { $in: industryIds } },
+        ];
+      }
     }
 
     const forecasts = await Forecast.find(filter)

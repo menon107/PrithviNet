@@ -172,6 +172,78 @@ export default function OfficerIndustries() {
     );
   };
 
+  const renderAiInsight = () => {
+    if (!selected) return null;
+    const isCritical = selected.compliance_status === 'critical' || selected.compliance_score < 40;
+    if (!isCritical) return null;
+
+    const lastN = 20;
+    const air = (series.air || []).slice(-lastN);
+    const water = (series.water || []).slice(-lastN);
+    const noise = (series.noise || []).slice(-lastN);
+
+    const maxPm25 = Math.max(...air.map((d) => d.avg_pm25 ?? -Infinity));
+    const maxPm10 = Math.max(...air.map((d) => d.avg_pm10 ?? -Infinity));
+    const highPmDays =
+      air.filter((d) => (d.avg_pm25 ?? 0) > 90 || (d.avg_pm10 ?? 0) > 140).length;
+
+    const maxBod = Math.max(...water.map((d) => d.avg_bod ?? -Infinity));
+    const maxCod = Math.max(...water.map((d) => d.avg_cod ?? -Infinity));
+    const badWaterDays =
+      water.filter((d) => (d.avg_bod ?? 0) > 30 || (d.avg_cod ?? 0) > 250).length;
+
+    const maxDayDb = Math.max(...noise.map((d) => d.avg_day_db ?? -Infinity));
+    const maxNightDb = Math.max(...noise.map((d) => d.avg_night_db ?? -Infinity));
+    const loudDays =
+      noise.filter(
+        (d) => (d.avg_day_db ?? 0) > 65 || (d.avg_night_db ?? 0) > 55
+      ).length;
+
+    return (
+      <div className="mb-5 rounded-lg border border-amber-500/40 bg-amber-500/5 p-4">
+        <div className="text-xs font-bold uppercase tracking-wider" style={{ color: '#f59e0b' }}>
+          AI Insight · Critical industry
+        </div>
+        <p className="mt-1 text-xs" style={{ color: 'var(--text-secondary)' }}>
+          This industry is in a <span className="font-semibold">critical</span> compliance state based on its recent monitoring data.
+        </p>
+        <ul className="mt-2 space-y-1 text-xs" style={{ color: 'var(--text-secondary)' }}>
+          {air.length > 0 && maxPm25 > 0 && (
+            <li>
+              • <span className="font-semibold">Air</span>: Frequent PM spikes
+              {highPmDays > 0 && ` on ~${highPmDays} of the last ${air.length} days`} with
+              {' '}PM2.5 up to {Number.isFinite(maxPm25) ? maxPm25.toFixed(0) : '—'} µg/m³
+              {Number.isFinite(maxPm10) && ` and PM10 up to ${maxPm10.toFixed(0)} µg/m³`},
+              indicating sustained poor local air quality downwind of the plant.
+            </li>
+          )}
+          {water.length > 0 && maxBod > 0 && (
+            <li>
+              • <span className="font-semibold">Water</span>: Elevated effluent strength
+              {badWaterDays > 0 && ` on ~${badWaterDays} recent discharge days`}, with BOD up to
+              {' '}{Number.isFinite(maxBod) ? maxBod.toFixed(1) : '—'} mg/L and COD up to
+              {' '}{Number.isFinite(maxCod) ? maxCod.toFixed(1) : '—'} mg/L, increasing the risk of
+              oxygen depletion and contamination in nearby rivers and canals.
+            </li>
+          )}
+          {noise.length > 0 && maxDayDb > 0 && (
+            <li>
+              • <span className="font-semibold">Noise</span>: High acoustic footprint with day-time
+              levels up to {Number.isFinite(maxDayDb) ? maxDayDb.toFixed(1) : '—'} dB and night-time up to
+              {' '}{Number.isFinite(maxNightDb) ? maxNightDb.toFixed(1) : '—'} dB, potentially affecting
+              nearby settlements and sensitive receptors.
+            </li>
+          )}
+        </ul>
+        <p className="mt-2 text-xs" style={{ color: 'var(--text-secondary)' }}>
+          Based on these patterns, an on-site inspection is recommended to verify emission controls,
+          effluent treatment performance, and noise mitigation measures, especially around nearby
+          water bodies and downwind residential zones.
+        </p>
+      </div>
+    );
+  };
+
   return (
     <>
       <PageHeader
@@ -214,17 +286,33 @@ export default function OfficerIndustries() {
                         className="transition-colors"
                         style={{
                           cursor: 'pointer',
-                          background: selected?._id === ind._id ? 'rgba(20,179,105,0.12)' : 'transparent',
+                          background:
+                            selected?._id === ind._id
+                              ? 'rgba(20,179,105,0.12)'
+                              : 'transparent',
                         }}
                         onClick={() => setSelected(ind)}
                       >
                         <td className="py-3">
                           <div className="font-semibold text-sm">{ind.name}</div>
-                          <div className="text-[10px] opacity-50">{INDUSTRY_TYPE_LABELS[ind.industry_type]}</div>
+                          <div className="text-[10px] opacity-50">
+                            {INDUSTRY_TYPE_LABELS[ind.industry_type]}
+                          </div>
                         </td>
-                        <td><ComplianceBadge status={ind.compliance_status} /></td>
-                        <td className="text-right font-mono font-bold"
-                          style={{ color: ind.compliance_score < 60 ? '#ef4444' : ind.compliance_score < 80 ? '#f79009' : '#14b369' }}>
+                        <td>
+                          <ComplianceBadge status={ind.compliance_status} />
+                        </td>
+                        <td
+                          className="text-right font-mono font-bold"
+                          style={{
+                            color:
+                              ind.compliance_score < 60
+                                ? '#ef4444'
+                                : ind.compliance_score < 80
+                                ? '#f79009'
+                                : '#14b369',
+                          }}
+                        >
                           {ind.compliance_score}
                         </td>
                       </tr>
@@ -247,6 +335,7 @@ export default function OfficerIndustries() {
               <div className="flex items-center justify-center h-64"><Spinner /></div>
             ) : (
               <>
+                {renderAiInsight()}
                 {/* Tabs */}
                 <div className="flex gap-2 mb-6">
                   {[

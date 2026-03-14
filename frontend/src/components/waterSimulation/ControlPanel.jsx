@@ -54,6 +54,7 @@ export default function ControlPanel({
   layers, selectedLayer, onSpill, onClean, onResetAll, onApplyWQI,
   stats, fetchReady,
   activeTab = 'water', setActiveTab = () => {}, googleAqiMapType = 'INDIA_AQI', setGoogleAqiMapType = () => {}, hasGoogleAqiKey = false,
+  onWarnIndustry = () => {},
 }) {
   return (
     <div style={s.panel}>
@@ -172,7 +173,31 @@ export default function ControlPanel({
                 <button type="button" style={{ ...s.btn(), flex: 'unset', padding: '4px 8px', fontSize: 10 }} onClick={onClean}>Clean</button>
               </div>
             </div>
-            <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 10, wordBreak: 'break-word' }}>{selectedLayer.name || selectedLayer.id}</div>
+            <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 6, wordBreak: 'break-word' }}>
+              {selectedLayer.name || selectedLayer.id}
+            </div>
+            {selectedLayer.industryName && (
+              <div style={{ marginBottom: 8 }}>
+                <div style={{ fontSize: 10, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 2 }}>
+                  Probable culprit
+                </div>
+                <div style={{ fontSize: 12, color: '#f97316', fontWeight: 600 }}>
+                  {selectedLayer.industryName}
+                  {selectedLayer.industryDistanceKm != null && (
+                    <span style={{ color: '#9ca3af', fontWeight: 400 }}>
+                      {` · ${selectedLayer.industryDistanceKm.toFixed(1)} km away`}
+                    </span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  style={{ ...s.btn('primary'), marginTop: 6, padding: '6px 10px', fontSize: 10 }}
+                  onClick={onWarnIndustry}
+                >
+                  Send control warning
+                </button>
+              </div>
+            )}
             <WQIPanel layer={selectedLayer} onApply={(params) => onApplyWQI(selectedLayer.id, params)} />
           </div>
         </>

@@ -3,7 +3,7 @@ import { PageHeader, PageContent } from '../../components/common/Layout';
 import { StatCard, SectionHeader, LiveIndicator, Empty, PageLoader } from '../../components/common/UI';
 import { AlertsPanel } from '../../components/alerts/AlertsPanel';
 import { AQITrendChart, PollutantBarChart } from '../../components/charts/Charts';
-import { industriesAPI, regionsAPI, reportsAPI, pollutionAPI } from '../../services/api';
+import { industriesAPI, regionsAPI, reportsAPI, pollutionAPI, alertsAPI, complaintsAPI } from '../../services/api';
 import { ComplianceBadge } from '../../components/common/UI';
 import { formatDate, INDUSTRY_TYPE_LABELS } from '../../utils/helpers';
 import { useNavigate } from 'react-router-dom';
@@ -13,22 +13,49 @@ export default function AdminDashboard() {
   const [regions, setRegions] = useState([]);
   const [topPolluters, setTopPolluters] = useState([]);
   const [airData, setAirData] = useState([]);
+  const [meta, setMeta] = useState({ regions: 0, industries: 0, activeAlerts: 0, flaggedIndustries: 0, pendingComplaints: 0 });
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
     const fetchAll = async () => {
       try {
-        const [regRes, pollutersRes, summaryRes, airRes] = await Promise.all([
+        const [
+          regRes,
+          pollutersRes,
+          summaryRes,
+          airRes,
+          allIndRes,
+          alertsRes,
+          complaintsRes,
+        ] = await Promise.all([
           regionsAPI.getAll(),
           industriesAPI.getTopPolluters({ limit: 8 }),
           pollutionAPI.getSummary(),
           pollutionAPI.getAir({ from_date: new Date(Date.now() - 30 * 86400000).toISOString() }),
+          industriesAPI.getAll({ page: 1, limit: 1 }),
+          alertsAPI.getAll({ status: 'active', limit: 200 }).catch(() => ({ data: { data: [] } })),
+          complaintsAPI.getAll({ status: 'pending', limit: 1 }).catch(() => ({ data: { data: [], pagination: { total: 0 } } })),
         ]);
-        setRegions(regRes.data.data);
-        setTopPolluters(pollutersRes.data.data);
-        setStats(summaryRes.data.data);
-        setAirData(airRes.data.data);
+        const regionList = regRes.data?.data || [];
+        const topList = pollutersRes.data?.data || [];
+        const industryPagination = allIndRes.data?.pagination;
+        const industriesTotal = industryPagination?.total ?? (allIndRes.data?.data?.length || 0);
+        const alertsList = alertsRes.data?.data || [];
+        const complaintsList = complaintsRes.data?.data || [];
+        const complaintsTotal = complaintsRes.data?.pagination?.total ?? complaintsList.length;
+
+        setRegions(regionList);
+        setTopPolluters(topList);
+        setStats(summaryRes.data?.data || null);
+        setAirData(airRes.data?.data || []);
+        setMeta({
+          regions: regionList.length,
+          industries: industriesTotal,
+          activeAlerts: alertsList.length,
+          flaggedIndustries: topList.length,
+          pendingComplaints: complaintsTotal,
+        });
       } catch (e) { console.error(e); }
       finally { setLoading(false); }
     };
@@ -45,7 +72,46 @@ export default function AdminDashboard() {
         actions={<LiveIndicator />}
       />
       <PageContent>
-        {/* Stats row */}
+        {/* National overview widgets */}
+        <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-5 gap-4 mb-7">
+          <StatCard
+            title="Regions Monitored"
+            value={meta.regions || '—'}
+            icon="🗺"
+            color="#0ea5e9"
+            subtitle="Total active regions"
+          />
+          <StatCard
+            title="Industries Registered"
+            value={meta.industries || '—'}
+            icon="🏭"
+            color="#22c55e"
+            subtitle="Across all regions"
+          />
+          <StatCard
+            title="Active Alerts"
+            value={meta.activeAlerts || 0}
+            icon="🚨"
+            color="#f97316"
+            subtitle="Environment & compliance"
+          />
+          <StatCard
+            title="Flagged Industries"
+            value={meta.flaggedIndustries || 0}
+            icon="⚠"
+            color="#ef4444"
+            subtitle="Top polluters"
+          />
+          <StatCard
+            title="Citizen Complaints"
+            value={meta.pendingComplaints || 0}
+            icon="📣"
+            color="#a855f7"
+            subtitle="Pending review"
+          />
+        </div>
+
+        {/* Air/compliance stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-7">
           <StatCard title="Avg AQI (7d)" value={stats?.air?.avg_aqi ? parseFloat(stats.air.avg_aqi).toFixed(0) : '—'}
             icon="💨" color="#14b369" subtitle="State average" />

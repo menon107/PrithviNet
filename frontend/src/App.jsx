@@ -15,6 +15,7 @@ import AdminReports from './pages/admin/Reports';
 import AdminAlerts from './pages/admin/Alerts';
 import AdminRegions from './pages/admin/Regions';
 import AdminUsers from './pages/admin/Users';
+import AdminSimulation from './pages/admin/Simulation';
 
 // Officer pages
 import OfficerDashboard from './pages/officer/Dashboard';
@@ -24,6 +25,7 @@ import OfficerReports from './pages/officer/Reports';
 import OfficerAlerts from './pages/officer/Alerts';
 import OfficerComplaints from './pages/officer/Complaints';
 import OfficerIndustryApprovals from './pages/officer/IndustryApprovals';
+import OfficerSimulation from './pages/officer/Simulation';
 
 // Industry pages
 import IndustryDashboard from './pages/industry/Dashboard';
@@ -103,7 +105,7 @@ function AppRoutes() {
       <Route path="/admin/industries" element={<ProtectedRoute roles={['super_admin']}><AdminIndustries /></ProtectedRoute>} />
       <Route path="/admin/reports" element={<ProtectedRoute roles={['super_admin']}><AdminReports /></ProtectedRoute>} />
       <Route path="/admin/alerts" element={<ProtectedRoute roles={['super_admin']}><AdminAlerts /></ProtectedRoute>} />
-      <Route path="/admin/simulation" element={<Navigate to="/admin" replace />} />
+      <Route path="/admin/simulation" element={<ProtectedRoute roles={['super_admin']}><AdminSimulation /></ProtectedRoute>} />
       <Route path="/admin/users" element={<ProtectedRoute roles={['super_admin']}><AdminUsers /></ProtectedRoute>} />
 
       {/* Regional Officer */}
@@ -113,7 +115,7 @@ function AppRoutes() {
       <Route path="/officer/industry-approvals" element={<ProtectedRoute roles={['regional_officer']}><OfficerIndustryApprovals /></ProtectedRoute>} />
       <Route path="/officer/reports" element={<ProtectedRoute roles={['regional_officer']}><OfficerReports /></ProtectedRoute>} />
       <Route path="/officer/alerts" element={<ProtectedRoute roles={['regional_officer']}><OfficerAlerts /></ProtectedRoute>} />
-      <Route path="/officer/simulation" element={<Navigate to="/officer" replace />} />
+      <Route path="/officer/simulation" element={<ProtectedRoute roles={['regional_officer']}><OfficerSimulation /></ProtectedRoute>} />
       <Route path="/officer/complaints" element={<ProtectedRoute roles={['regional_officer']}><OfficerComplaints /></ProtectedRoute>} />
 
       {/* Industry */}

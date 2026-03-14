@@ -15,6 +15,7 @@ const NAV_ITEMS = {
   regional_officer: [
     { to: '/officer', label: 'Dashboard', icon: '⬡', end: true },
     { to: '/officer/map', label: 'Pollution Map', icon: '🗺' },
+    { to: '/officer/simulation', label: 'Simulation', icon: '🧪' },
     { to: '/officer/industries', label: 'Industries', icon: '🏭' },
     { to: '/officer/reports', label: 'Reports', icon: '📋' },
     { to: '/officer/alerts', label: 'Alerts', icon: '🔔' },
