@@ -1,4 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
+import mapboxgl from 'mapbox-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
 import { PageHeader, PageContent } from '../../components/common/Layout';
 import { Empty, PageLoader, SectionHeader } from '../../components/common/UI';
 import {
@@ -50,6 +52,15 @@ export default function OfficerForecastAlerts() {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [reportsLoading, setReportsLoading] = useState(true);
+  const [googleLatLng, setGoogleLatLng] = useState({ lat: 21.25, lng: 81.63 });
+  const [googleForecast, setGoogleForecast] = useState([]);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [googleError, setGoogleError] = useState('');
+  const aqiMapContainerRef = useRef(null);
+  const aqiMapRef = useRef(null);
+  const aqiMarkerRef = useRef(null);
+  const [aqiMapTokenPaste, setAqiMapTokenPaste] = useState('');
+  const effectiveMapToken = (process.env.REACT_APP_MAPBOX_TOKEN || '').trim() || (aqiMapTokenPaste || '').trim();
 
   const fetchForecasts = async () => {
     setLoading(true);
@@ -65,6 +76,122 @@ export default function OfficerForecastAlerts() {
   };
 
   useEffect(() => { fetchForecasts(); }, []);
+
+  const fetchGoogleAqiForecast = async (clickedLat, clickedLng) => {
+    const lat = clickedLat ?? googleLatLng.lat;
+    const lng = clickedLng ?? googleLatLng.lng;
+    const key = process.env.REACT_APP_GOOGLE_AQI_KEY || '';
+    console.log('[Google AQI Forecast] Key present:', !!key, '| lat:', lat, 'lng:', lng);
+    if (!key) {
+      setGoogleError('Set REACT_APP_GOOGLE_AQI_KEY in your environment to use Google AQI forecast.');
+      return;
+    }
+    setGoogleLatLng({ lat, lng });
+    setGoogleLoading(true);
+    setGoogleError('');
+    setGoogleForecast([]);
+    // API requires dateTime = future time (next hour, up to 96 hours ahead)
+    const now = new Date();
+    const nextHour = new Date(now);
+    nextHour.setUTCHours(nextHour.getUTCHours() + 1);
+    nextHour.setUTCMinutes(0, 0, 0);
+    const dateTime = nextHour.toISOString().slice(0, 19) + 'Z';
+    const body = {
+      location: {
+        latitude: lat,
+        longitude: lng,
+      },
+      dateTime,
+      pageSize: 48,
+      languageCode: 'en',
+      extraComputations: ['HEALTH_RECOMMENDATIONS'],
+      universalAqi: true,
+    };
+    console.log('[Google AQI Forecast] Request body:', JSON.stringify(body, null, 2));
+    try {
+      const url = `https://airquality.googleapis.com/v1/forecast:lookup?key=${key}`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      console.log('[Google AQI Forecast] Response status:', res.status, res.statusText, 'ok:', res.ok);
+      if (!res.ok) {
+        const errText = await res.text();
+        console.error('[Google AQI Forecast] Error response body:', errText);
+        try {
+          const errJson = JSON.parse(errText);
+          console.error('[Google AQI Forecast] Parsed error:', errJson);
+        } catch (_) {}
+        setGoogleError(`Google AQI API error: ${res.status}. Check console for details.`);
+        setGoogleLoading(false);
+        return;
+      }
+      const data = await res.json();
+      console.log('[Google AQI Forecast] Response keys:', Object.keys(data), '| hourlyForecasts length:', data.hourlyForecasts?.length ?? data.forecast?.length ?? 'n/a');
+      if (data.hourlyForecasts?.length) {
+        console.log('[Google AQI Forecast] First hour sample:', data.hourlyForecasts[0]);
+      }
+      const hours = data.hourlyForecasts || data.forecast || [];
+      const series = hours
+        .map((h) => {
+          const dt = h.dateTime || h.datetime || h.time;
+          if (!dt) return null;
+          const idx =
+            (h.indexes && h.indexes.find((i) => i.code === 'uaqi')) ||
+            (h.indexes && h.indexes[0]) ||
+            null;
+          const aqi = idx?.aqi ?? null;
+          if (aqi == null) return null;
+          const iso = new Date(dt).toISOString();
+          return {
+            date: iso.slice(0, 16).replace('T', ' '),
+            pm25: null,
+            aqi: { value: Math.round(aqi) },
+          };
+        })
+        .filter(Boolean);
+      console.log('[Google AQI Forecast] Parsed series length:', series.length);
+      setGoogleForecast(series);
+    } catch (e) {
+      console.error('[Google AQI Forecast] Caught error:', e?.message ?? e);
+      console.error('[Google AQI Forecast] Error name:', e?.name, 'stack:', e?.stack);
+      if (e?.cause) console.error('[Google AQI Forecast] Cause:', e.cause);
+      setGoogleError(`Failed to fetch Google AQI forecast. ${e?.message || ''} Check console.`);
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
+  // Map for Google AQI: click to select location and fetch forecast (init when token + container available)
+  useEffect(() => {
+    if (!effectiveMapToken || !aqiMapContainerRef.current || aqiMapRef.current) return;
+    const center = [googleLatLng.lng, googleLatLng.lat];
+    mapboxgl.accessToken = effectiveMapToken;
+    const map = new mapboxgl.Map({
+      container: aqiMapContainerRef.current,
+      style: 'mapbox://styles/mapbox/dark-v11',
+      center,
+      zoom: 6,
+      attributionControl: false,
+    });
+    map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'bottom-right');
+    aqiMapRef.current = map;
+    const marker = new mapboxgl.Marker({ color: '#0ea5e9' })
+      .setLngLat(center)
+      .addTo(map);
+    aqiMarkerRef.current = marker;
+    map.on('click', (e) => {
+      const { lat, lng } = e.lngLat;
+      if (aqiMarkerRef.current) aqiMarkerRef.current.setLngLat([lng, lat]);
+      fetchGoogleAqiForecast(lat, lng);
+    });
+    return () => {
+      map.remove();
+      aqiMapRef.current = null;
+      aqiMarkerRef.current = null;
+    };
+  }, [effectiveMapToken]);
 
   useEffect(() => {
     if (!regionId) { setReportsLoading(false); return; }
@@ -259,6 +386,68 @@ export default function OfficerForecastAlerts() {
                 )}
               </div>
             )}
+
+            {/* Google AQI forecast: click map to get forecast for that location */}
+            <div className="card p-5 mb-6">
+              <SectionHeader
+                title="Google AQI forecast"
+                subtitle="Click a location on the map to fetch the 48‑hour AQI forecast for that point (Google Air Quality API)"
+              />
+              {!effectiveMapToken ? (
+                <div className="py-4 space-y-3">
+                  <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                    Set REACT_APP_MAPBOX_TOKEN in <code className="text-xs px-1 rounded" style={{ background: 'var(--bg-secondary)' }}>frontend/.env</code> and restart the dev server, or paste your Mapbox token below:
+                  </p>
+                  <input
+                    type="password"
+                    placeholder="pk.eyJ1..."
+                    value={aqiMapTokenPaste}
+                    onChange={(e) => setAqiMapTokenPaste(e.target.value)}
+                    className="w-full max-w-md rounded-md border px-3 py-2 text-sm bg-transparent"
+                    style={{ borderColor: 'var(--border)', color: 'var(--text-primary)' }}
+                  />
+                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                    The map will load as soon as the field contains a token. Get one at mapbox.com.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div className="relative rounded-lg overflow-hidden border mt-2" style={{ height: 320, borderColor: 'var(--border)' }}>
+                    <div ref={aqiMapContainerRef} className="w-full h-full" />
+                    <div
+                      className="absolute top-2 left-2 px-2 py-1 rounded text-xs font-medium"
+                      style={{ background: 'rgba(7,9,15,0.85)', color: '#94a3b8' }}
+                    >
+                      Click map to select location
+                    </div>
+                    {googleLoading && (
+                      <div
+                        className="absolute inset-0 flex items-center justify-center"
+                        style={{ background: 'rgba(0,0,0,0.4)' }}
+                      >
+                        <PageLoader />
+                      </div>
+                    )}
+                  </div>
+                  {googleError && (
+                    <p className="text-xs mt-2" style={{ color: '#f97316' }}>
+                      {googleError}
+                    </p>
+                  )}
+                  {googleForecast.length > 0 && (
+                    <div className="mt-4">
+                      <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>
+                        Forecast for {googleLatLng.lat.toFixed(4)}, {googleLatLng.lng.toFixed(4)}
+                      </p>
+                      <ForecastChart data={googleForecast} height={220} />
+                      <p className="text-[11px] mt-1" style={{ color: 'var(--text-muted)' }}>
+                        Data source: Google Air Quality API (universal AQI).
+                      </p>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
 
             {/* High-level air / water / noise forecast charts */}
             {(airSeries.length > 0 || waterChartData.length > 0 || noiseChartData.length > 0) && (

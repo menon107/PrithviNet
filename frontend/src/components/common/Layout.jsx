@@ -10,6 +10,8 @@ const NAV_ITEMS = {
     { to: '/admin/industries', label: 'Industries', icon: '🏭' },
     { to: '/admin/reports', label: 'Reports', icon: '📋' },
     { to: '/admin/alerts', label: 'Alerts', icon: '🔔' },
+    { to: '/admin/notices', label: 'Notices', icon: '📌' },
+    { to: '/admin/chatbot', label: 'Chatbot', icon: '💬' },
     { to: '/admin/users', label: 'User Mgmt', icon: '👥' },
   ],
   regional_officer: [
@@ -19,6 +21,8 @@ const NAV_ITEMS = {
     { to: '/officer/industries', label: 'Industries', icon: '🏭' },
     { to: '/officer/reports', label: 'Reports', icon: '📋' },
     { to: '/officer/alerts', label: 'Alerts', icon: '🔔' },
+    { to: '/officer/notices', label: 'Notices', icon: '📌' },
+    { to: '/officer/chatbot', label: 'Chatbot', icon: '💬' },
     { to: '/officer/complaints', label: 'Complaints', icon: '📣' },
   ],
   industry: [
@@ -28,6 +32,7 @@ const NAV_ITEMS = {
     { to: '/industry/warnings', label: 'Warnings', icon: '📩' },
     { to: '/industry/compliance', label: 'Compliance', icon: '✅' },
     { to: '/industry/alerts', label: 'Alerts', icon: '🔔' },
+    { to: '/industry/notices', label: 'Notices', icon: '📌' },
   ],
   citizen: [
     { to: '/citizen', label: 'Air Quality', icon: '💨', end: true },

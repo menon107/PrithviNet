@@ -17,6 +17,7 @@ const complaintsRoutes = require('./routes/complaints');
 const aiRoutes = require('./routes/ai');
 const warningsRoutes = require('./routes/warnings');
 const forecastRoutes = require('./routes/forecast');
+const noticesRoutes = require('./routes/notices');
 
 const app = express();
 
@@ -42,6 +43,7 @@ app.use(`${API}/complaints`, complaintsRoutes);
 app.use(`${API}/ai`, aiRoutes);
 app.use(`${API}/warnings`, warningsRoutes);
 app.use(`${API}/forecast`, forecastRoutes);
+app.use(`${API}/notices`, noticesRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

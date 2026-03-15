@@ -16,6 +16,8 @@ import AdminAlerts from './pages/admin/Alerts';
 import AdminRegions from './pages/admin/Regions';
 import AdminUsers from './pages/admin/Users';
 import AdminSimulation from './pages/admin/Simulation';
+import ChatbotPage from './pages/ChatbotPage';
+import NoticesPage from './pages/NoticesPage';
 
 // Officer pages
 import OfficerDashboard from './pages/officer/Dashboard';
@@ -105,6 +107,8 @@ function AppRoutes() {
       <Route path="/admin/industries" element={<ProtectedRoute roles={['super_admin']}><AdminIndustries /></ProtectedRoute>} />
       <Route path="/admin/reports" element={<ProtectedRoute roles={['super_admin']}><AdminReports /></ProtectedRoute>} />
       <Route path="/admin/alerts" element={<ProtectedRoute roles={['super_admin']}><AdminAlerts /></ProtectedRoute>} />
+      <Route path="/admin/notices" element={<ProtectedRoute roles={['super_admin']}><NoticesPage /></ProtectedRoute>} />
+      <Route path="/admin/chatbot" element={<ProtectedRoute roles={['super_admin']}><ChatbotPage /></ProtectedRoute>} />
       <Route path="/admin/simulation" element={<ProtectedRoute roles={['super_admin']}><AdminSimulation /></ProtectedRoute>} />
       <Route path="/admin/users" element={<ProtectedRoute roles={['super_admin']}><AdminUsers /></ProtectedRoute>} />
 
@@ -115,6 +119,8 @@ function AppRoutes() {
       <Route path="/officer/industry-approvals" element={<ProtectedRoute roles={['regional_officer']}><OfficerIndustryApprovals /></ProtectedRoute>} />
       <Route path="/officer/reports" element={<ProtectedRoute roles={['regional_officer']}><OfficerReports /></ProtectedRoute>} />
       <Route path="/officer/alerts" element={<ProtectedRoute roles={['regional_officer']}><OfficerAlerts /></ProtectedRoute>} />
+      <Route path="/officer/notices" element={<ProtectedRoute roles={['regional_officer']}><NoticesPage /></ProtectedRoute>} />
+      <Route path="/officer/chatbot" element={<ProtectedRoute roles={['regional_officer']}><ChatbotPage /></ProtectedRoute>} />
       <Route path="/officer/simulation" element={<ProtectedRoute roles={['regional_officer']}><OfficerSimulation /></ProtectedRoute>} />
       <Route path="/officer/complaints" element={<ProtectedRoute roles={['regional_officer']}><OfficerComplaints /></ProtectedRoute>} />
 
@@ -124,6 +130,7 @@ function AppRoutes() {
       <Route path="/industry/reports" element={<ProtectedRoute roles={['industry']}><IndustryReports /></ProtectedRoute>} />
       <Route path="/industry/warnings" element={<ProtectedRoute roles={['industry']}><IndustryWarnings /></ProtectedRoute>} />
       <Route path="/industry/compliance" element={<ProtectedRoute roles={['industry']}><IndustryCompliance /></ProtectedRoute>} />
+      <Route path="/industry/notices" element={<ProtectedRoute roles={['industry']}><NoticesPage /></ProtectedRoute>} />
       <Route path="/industry/alerts" element={<ProtectedRoute roles={['industry']}><IndustryAlerts /></ProtectedRoute>} />
 
       {/* Citizen */}

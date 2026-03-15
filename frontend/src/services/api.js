@@ -121,4 +121,12 @@ export const complaintsAPI = {
   updateStatus: (id, data) => api.put(`/complaints/${id}/status`, data),
 };
 
+// ── Notices ────────────────────────────────────────
+export const noticesAPI = {
+  getAll: (params) => api.get('/notices', { params }),
+  getById: (id) => api.get(`/notices/${id}`),
+  create: (data) => api.post('/notices', data),
+  addComment: (id, data) => api.post(`/notices/${id}/comments`, data),
+};
+
 export default api;

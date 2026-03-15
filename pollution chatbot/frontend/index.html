@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EcoSense AI | Industrial Environmental Assistant</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Outfit:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify/dist/purify.min.js"></script>
+</head>
+<body>
+    <div class="blob-bg"></div>
+    <div class="app-container">
+        <header>
+            <div class="logo">
+                <span class="logo-icon">📊</span>
+                <span class="logo-text">EcoSense <span>AI</span></span>
+            </div>
+            <div class="status-indicator">
+                <span class="pulse"></span> System Online
+            </div>
+        </header>
+
+        <main id="chat-window" class="chat-window">
+            <div class="message system">
+                <div class="message-content">
+                    Hello! I am your Industrial Environmental Assistant. I can check live sensor data, forecast pollutant levels, and analyze compliance for your industries. How can I help you today?
+                </div>
+            </div>
+        </main>
+
+        <section class="quick-actions">
+            <button class="action-btn" onclick="quickAsk('What is the current SO2 level for AMUL?')">Current SO₂ (AMUL)</button>
+            <button class="action-btn" onclick="quickAsk('Is AMUL compliant with emission standards?')">Compliance Status</button>
+            <button class="action-btn" onclick="quickAsk('Which industry has highest NO2 today?')">Highest NO₂</button>
+        </section>
+
+        <footer class="input-area">
+            <div class="input-container">
+                <input type="text" id="user-input" placeholder="Query air, water, or emission conditions..." autocomplete="off">
+                <button id="send-btn" class="send-btn">
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M22 2L11 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </button>
+            </div>
+        </footer>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>
