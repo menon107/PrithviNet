@@ -17,13 +17,18 @@ const complaintsRoutes = require('./routes/complaints');
 const aiRoutes = require('./routes/ai');
 const warningsRoutes = require('./routes/warnings');
 const forecastRoutes = require('./routes/forecast');
-const noticesRoutes = require('./routes/notices');
+const noticesRoutes = require('./routes/notices'); // friend's addition
 
 const app = express();
 
 connectDB();
 
-app.use(cors({ origin: process.env.FRONTEND_URL || 'http://localhost:3000', credentials: true }));
+// ✅ Your CORS change kept
+app.use(cors({
+  origin: true,
+  credentials: true
+}));
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 if (process.env.NODE_ENV === 'development') app.use(morgan('dev'));
@@ -43,7 +48,7 @@ app.use(`${API}/complaints`, complaintsRoutes);
 app.use(`${API}/ai`, aiRoutes);
 app.use(`${API}/warnings`, warningsRoutes);
 app.use(`${API}/forecast`, forecastRoutes);
-app.use(`${API}/notices`, noticesRoutes);
+app.use(`${API}/notices`, noticesRoutes); // friend's addition
 
 app.use(notFound);
 app.use(errorHandler);

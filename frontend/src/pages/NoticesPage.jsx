@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { PageHeader, PageContent } from '../components/common/Layout';
-import { Empty, PageLoader } from '../components/common/UI';
+import { Empty, PageLoader, Modal } from '../components/common/UI';
 import { noticesAPI, regionsAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { formatDateTime } from '../utils/helpers';
@@ -54,15 +54,17 @@ export default function NoticesPage() {
     }
   }, [canCreate, showForm]);
 
+  const selectedId = typeof selected === 'object' && selected?._id ? selected._id : selected;
+
   useEffect(() => {
-    if (!selected) return;
+    if (!selectedId || typeof selected === 'object') return;
     setDetailLoading(true);
     noticesAPI
-      .getById(selected)
+      .getById(selectedId)
       .then(({ data }) => setSelected(data.data))
       .catch(() => setSelected(null))
       .finally(() => setDetailLoading(false));
-  }, [selected]);
+  }, [selectedId]);
 
   const handleCreate = async (e) => {
     e.preventDefault();
@@ -224,113 +226,103 @@ export default function NoticesPage() {
         ) : list.length === 0 ? (
           <Empty icon="📌" message="No notices yet." />
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="flex flex-col gap-3">
-              {list.map((n) => (
-                <button
-                  key={n._id}
-                  type="button"
-                  onClick={() => setSelected(n._id)}
-                  className="card p-4 text-left transition-all hover:border-green-500/40"
-                  style={{
-                    borderColor: (selected?._id || selected) === n._id ? 'rgba(20,179,105,0.5)' : 'var(--border)',
-                    background: (selected?._id || selected) === n._id ? 'rgba(20,179,105,0.06)' : 'var(--bg-secondary)',
-                  }}
-                >
-                  <div className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>
-                    {n.heading}
-                  </div>
-                  <div className="flex items-center gap-2 mt-1 flex-wrap text-xs" style={{ color: 'var(--text-muted)' }}>
-                    <span>{n.published_by?.name || '—'}</span>
-                    <span>{formatDateTime(n.created_at)}</span>
-                    <span
-                      className="px-1.5 py-0.5 rounded"
-                      style={{ background: 'rgba(255,255,255,0.08)', color: 'var(--text-secondary)' }}
-                    >
-                      {AUDIENCE_LABELS[n.audience_type] || n.audience_type}
-                    </span>
-                  </div>
-                </button>
-              ))}
-            </div>
-
-            <div className="lg:sticky lg:top-6">
-              {selected && (
-                <div className="card p-5" style={{ borderColor: 'var(--border)' }}>
-                  {detailLoading ? (
-                    <PageLoader />
-                  ) : typeof selected === 'object' && selected.heading ? (
-                    <>
-                      <div className="flex items-start justify-between gap-2 mb-3">
-                        <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
-                          {selected.heading}
-                        </h2>
-                        <button
-                          type="button"
-                          onClick={() => setSelected(null)}
-                          className="text-xs px-2 py-1 rounded border"
-                          style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}
-                        >
-                          Close
-                        </button>
-                      </div>
-                      <div className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>
-                        {selected.published_by?.name} · {formatDateTime(selected.created_at)} ·{' '}
-                        {AUDIENCE_LABELS[selected.audience_type]}
-                        {selected.audience_type === 'regions' &&
-                          selected.region_ids?.length > 0 &&
-                          ` (${selected.region_ids.map((r) => r.name).join(', ')})`}
-                      </div>
-                      <div
-                        className="text-sm whitespace-pre-wrap mb-4 pb-4 border-b"
-                        style={{ color: 'var(--text-secondary)', borderColor: 'var(--border)' }}
-                      >
-                        {selected.body}
-                      </div>
-
-                      <div className="text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>
-                        Comments ({selected.comments?.length || 0})
-                      </div>
-                      <div className="flex flex-col gap-2 mb-4 max-h-48 overflow-y-auto">
-                        {(selected.comments || []).map((c) => (
-                          <div
-                            key={c._id}
-                            className="p-2 rounded-lg text-sm"
-                            style={{ background: 'var(--bg-primary)', border: '1px solid var(--border)' }}
-                          >
-                            <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>
-                              {c.user_id?.name} · {formatDateTime(c.created_at)}
-                            </div>
-                            <div style={{ color: 'var(--text-secondary)' }}>{c.text}</div>
-                          </div>
-                        ))}
-                      </div>
-
-                      <form onSubmit={handleAddComment} className="flex gap-2">
-                        <input
-                          type="text"
-                          value={commentText}
-                          onChange={(e) => setCommentText(e.target.value)}
-                          placeholder="Add a comment..."
-                          className="flex-1 rounded-lg border px-3 py-2 text-sm bg-transparent"
-                          style={{ borderColor: 'var(--border)', color: 'var(--text-primary)' }}
-                        />
-                        <button
-                          type="submit"
-                          disabled={commentLoading || !commentText.trim()}
-                          className="px-3 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-50"
-                          style={{ background: '#14b369' }}
-                        >
-                          {commentLoading ? '…' : 'Comment'}
-                        </button>
-                      </form>
-                    </>
-                  ) : null}
+          <div className="flex flex-col gap-3">
+            {list.map((n) => (
+              <button
+                key={n._id}
+                type="button"
+                onClick={() => setSelected(n._id)}
+                className="card p-4 text-left transition-all hover:border-green-500/40 w-full"
+                style={{
+                  borderColor: (selected?._id || selected) === n._id ? 'rgba(20,179,105,0.5)' : 'var(--border)',
+                  background: (selected?._id || selected) === n._id ? 'rgba(20,179,105,0.06)' : 'var(--bg-secondary)',
+                }}
+              >
+                <div className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>
+                  {n.heading}
                 </div>
-              )}
-            </div>
+                <div className="flex items-center gap-2 mt-1 flex-wrap text-xs" style={{ color: 'var(--text-muted)' }}>
+                  <span>{n.published_by?.name || '—'}</span>
+                  <span>{formatDateTime(n.created_at)}</span>
+                  <span
+                    className="px-1.5 py-0.5 rounded"
+                    style={{ background: 'rgba(255,255,255,0.08)', color: 'var(--text-secondary)' }}
+                  >
+                    {AUDIENCE_LABELS[n.audience_type] || n.audience_type}
+                  </span>
+                </div>
+              </button>
+            ))}
           </div>
         )}
+
+        <Modal
+          isOpen={!!selected}
+          onClose={() => { setSelected(null); setCommentText(''); }}
+          title={typeof selected === 'object' && selected?.heading ? selected.heading : 'Notice'}
+          width="max-w-xl"
+        >
+          {selected && (
+            <>
+              {detailLoading ? (
+                <PageLoader />
+              ) : typeof selected === 'object' && selected.heading ? (
+                <>
+                  <div className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>
+                    {selected.published_by?.name} · {formatDateTime(selected.created_at)} ·{' '}
+                    {AUDIENCE_LABELS[selected.audience_type]}
+                    {selected.audience_type === 'regions' &&
+                      selected.region_ids?.length > 0 &&
+                      ` (${selected.region_ids.map((r) => r.name).join(', ')})`}
+                  </div>
+                  <div
+                    className="text-sm whitespace-pre-wrap mb-4 pb-4 border-b"
+                    style={{ color: 'var(--text-secondary)', borderColor: 'var(--border)' }}
+                  >
+                    {selected.body}
+                  </div>
+
+                  <div className="text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>
+                    Comments ({selected.comments?.length || 0})
+                  </div>
+                  <div className="flex flex-col gap-2 mb-4 max-h-48 overflow-y-auto">
+                    {(selected.comments || []).map((c) => (
+                      <div
+                        key={c._id}
+                        className="p-2 rounded-lg text-sm"
+                        style={{ background: 'var(--bg-primary)', border: '1px solid var(--border)' }}
+                      >
+                        <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>
+                          {c.user_id?.name} · {formatDateTime(c.created_at)}
+                        </div>
+                        <div style={{ color: 'var(--text-secondary)' }}>{c.text}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <form onSubmit={handleAddComment} className="flex gap-2">
+                    <input
+                      type="text"
+                      value={commentText}
+                      onChange={(e) => setCommentText(e.target.value)}
+                      placeholder="Add a comment..."
+                      className="flex-1 rounded-lg border px-3 py-2 text-sm bg-transparent"
+                      style={{ borderColor: 'var(--border)', color: 'var(--text-primary)' }}
+                    />
+                    <button
+                      type="submit"
+                      disabled={commentLoading || !commentText.trim()}
+                      className="px-3 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-50"
+                      style={{ background: '#14b369' }}
+                    >
+                      {commentLoading ? '…' : 'Comment'}
+                    </button>
+                  </form>
+                </>
+              ) : null}
+            </>
+          )}
+        </Modal>
       </PageContent>
     </>
   );
